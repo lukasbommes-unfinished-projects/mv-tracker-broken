@@ -1,0 +1,13 @@
+version: "2.3"
+
+services:
+
+  mv_tracker:
+    container_name: mv_tracker
+    build: .
+    environment:
+      - DISPLAY
+    ipc: host # for GUI
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # for GUI access
+      - .:/mvt

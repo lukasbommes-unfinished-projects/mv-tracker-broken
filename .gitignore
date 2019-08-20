@@ -1,0 +1,5 @@
+*.avi
+
+__pycache__/
+/paper/
+/models/
