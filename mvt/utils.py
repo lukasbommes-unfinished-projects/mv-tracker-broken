@@ -31,3 +31,13 @@ def draw_boxes(frame, bounding_boxes, color=(0, 255, 0)):
         cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2, cv2.LINE_4)
         #cv2.putText(frame, '{}'.format(box_id), (xmin, ymin-5), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv2.LINE_AA)
     return frame
+
+
+def draw_box_ids(frame, bounding_boxes, box_ids, color=(0, 0, 255)):
+    for box, box_id in zip(bounding_boxes, box_ids):
+        xmin = int(box[0])
+        ymin = int(box[1])
+        xmax = int(box[0] + box[2])
+        ymax = int(box[1] + box[3])
+        cv2.putText(frame, '{}'.format(str(box_id)[:6]), (xmin, ymin-5), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2, cv2.LINE_AA)
+    return frame

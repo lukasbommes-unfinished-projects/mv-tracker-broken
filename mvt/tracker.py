@@ -54,3 +54,6 @@ class MotionVectorTracker:
 
     def get_boxes(self):
         return self.boxes
+
+    def get_box_ids(self):
+        return self.box_ids

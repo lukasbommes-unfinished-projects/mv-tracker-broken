@@ -4,3 +4,10 @@ class Config(object):
     DETECTOR_BOX_SIZE_THRES = None #(0.25*1920, 0.6*1080) # discard detection boxes larger than this threshold
     DETECTOR_INTERVAL = 10
     TRACKER_IOU_THRES = 0.3
+
+
+class EvalConfig(Config):
+    DATA_DIR = "benchmark/MOT17"  # root of MOT17 dataset
+    DET_TYPE = "FRCNN"  # either "DPM", "FRCNN" or "SDP"
+    DETECTOR_INTERVAL = 4
+    TRACKER_IOU_THRES = 0.3

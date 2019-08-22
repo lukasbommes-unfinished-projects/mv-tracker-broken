@@ -1,5 +1,6 @@
 *.avi
-
+.ipynb_checkpoints/
 __pycache__/
 /paper/
 /models/
+/benchmark/
