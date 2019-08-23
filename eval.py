@@ -56,11 +56,6 @@ if __name__ == "__main__":
         frame_idx = 0
         step_wise = False
 
-        # box colors
-        #color_detection = (0, 0, 150)
-        color_tracker = (0, 0, 255)
-        #color_previous = (150, 255, 0)
-
         pbar = tqdm(total=len(detections))
         while True:
             ret, frame, motion_vectors, frame_type, _ = cap.read()
@@ -73,12 +68,6 @@ if __name__ == "__main__":
             # draw info
             frame = cv2.putText(frame, "Frame Type: {}".format(frame_type), (1000, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
-            # draw color legend
-            #frame = cv2.putText(frame, "Detection", (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_detection, 2, cv2.LINE_AA)
-            #frame = cv2.putText(frame, "Tracker Prediction", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_tracker, 2, cv2.LINE_AA)
-            #frame = cv2.putText(frame, "Previous Prediction", (15, 95), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_previous, 2, cv2.LINE_AA)
-            #frame = cv2.putText(frame, "Desired Prediction", (15, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_desired, 2, cv2.LINE_AA)
-
             # update with detections
             if frame_idx % Config.DETECTOR_INTERVAL == 0:
                 tracker.update(motion_vectors, frame_type, detections[frame_idx])
@@ -89,7 +78,7 @@ if __name__ == "__main__":
 
             track_boxes = tracker.get_boxes()
             track_ids = tracker.get_box_ids()
-            frame = draw_boxes(frame, track_boxes, color=color_tracker)
+            frame = draw_boxes(frame, track_boxes, color=(0, 0, 255))
             frame = draw_box_ids(frame, track_boxes, track_ids)
 
             # compute distance between ground truth and tracker prediction
@@ -121,6 +110,7 @@ if __name__ == "__main__":
         cap.release()
         pbar.close()
 
+        # compute metrics for this sequence
         mh = mm.metrics.create()
         summary = mh.compute(acc, metrics=mm.metrics.motchallenge_metrics, name='result')
         strsummary = mm.io.render_summary(
@@ -134,3 +124,5 @@ if __name__ == "__main__":
 
 
         cv2.destroyAllWindows()
+
+    # TODO: compute overall metrics table
