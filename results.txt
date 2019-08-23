@@ -1,0 +1,24 @@
+04:13:51 INFO - Found 21 groundtruths and 7 test files.
+04:13:51 INFO - Available LAP solvers ['lapsolver', 'scipy']
+04:13:51 INFO - Default LAP solver 'lapsolver'
+04:13:51 INFO - Loading files.
+04:14:01 INFO - Comparing MOT17-02-FRCNN...
+04:14:07 INFO - Comparing MOT17-13-FRCNN...
+04:14:12 INFO - Comparing MOT17-05-FRCNN...
+04:14:15 INFO - Comparing MOT17-11-FRCNN...
+04:14:19 INFO - Comparing MOT17-09-FRCNN...
+04:14:21 INFO - Comparing MOT17-10-FRCNN...
+04:14:26 INFO - Comparing MOT17-04-FRCNN...
+04:14:52 INFO - Running metrics
+/usr/local/lib/python3.6/dist-packages/motmetrics/mot.py:243: FutureWarning: the 'labels' keyword is deprecated, use 'codes' instead
+  idx = pd.MultiIndex(levels=[[],[]], labels=[[],[]], names=['FrameId','Event'])
+                IDF1   IDP   IDR  Rcll  Prcn  GT  MT  PT  ML   FP    FN  IDs    FM  MOTA  MOTP
+MOT17-02-FRCNN 34.4% 56.5% 24.7% 34.8% 79.5%  62   7  28  27 1667 12112  119   133 25.2% 0.136
+MOT17-13-FRCNN 38.9% 46.0% 33.6% 52.3% 71.5% 110  21  59  30 2432  5554  348   401 28.4% 0.197
+MOT17-05-FRCNN 52.1% 72.7% 40.6% 50.4% 90.3% 133  17  66  50  376  3430   92    88 43.6% 0.192
+MOT17-11-FRCNN 53.7% 69.0% 43.9% 59.6% 93.6%  75  16  36  23  383  3815   67    67 54.8% 0.106
+MOT17-09-FRCNN 54.6% 75.0% 42.9% 56.6% 99.0%  26   7  16   3   30  2312   36    41 55.3% 0.113
+MOT17-10-FRCNN 40.0% 46.5% 35.1% 57.9% 76.7%  57  13  38   6 2258  5403  238   289 38.5% 0.182
+MOT17-04-FRCNN 54.6% 73.0% 43.6% 55.7% 93.2%  83  19  43  21 1928 21081  107   123 51.4% 0.108
+OVERALL        47.8% 63.5% 38.3% 52.2% 86.6% 546 100 286 160 9074 53707 1007  1142 43.2% 0.135
+04:22:48 INFO - Completed

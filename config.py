@@ -8,6 +8,7 @@ class Config(object):
 
 class EvalConfig(Config):
     DATA_DIR = "benchmark/MOT17"  # root of MOT17 dataset
-    DET_TYPE = "FRCNN"  # either "DPM", "FRCNN" or "SDP"
-    DETECTOR_INTERVAL = 4
-    TRACKER_IOU_THRES = 0.3
+    EVAL_DETECTORS = ["FRCNN", "SDP", "DPM"]  # which detections to use, can contain "FRCNN", "SDP", "DPM"
+    EVAL_DATASETS = ["train"]  # which datasets to use, can contain "train" and "test"
+    DETECTOR_INTERVAL = 5
+    TRACKER_IOU_THRES = 0.1

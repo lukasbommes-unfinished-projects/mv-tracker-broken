@@ -1,6 +1,8 @@
 *.avi
+/output/
 .ipynb_checkpoints/
 __pycache__/
 /paper/
 /models/
-/benchmark/
+/benchmark/MOT17/train/
+/benchmark/MOT17/test/
