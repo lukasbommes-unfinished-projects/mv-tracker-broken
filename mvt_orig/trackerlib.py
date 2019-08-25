@@ -288,8 +288,8 @@ def match_bounding_boxes(t_boxes, d_boxes, iou_threshold):
         matches = np.vstack(matches)
 
     # sort descending for later deletion
-    unmatched_trackers = np.array(sorted(unmatched_trackers, reverse=True))
-    unmatched_detectors = np.array(sorted(unmatched_detectors, reverse=True))
+    unmatched_trackers = np.array(unmatched_trackers[::-1])
+    unmatched_detectors = np.array(unmatched_detectors[::-1])
     return matches, unmatched_trackers, unmatched_detectors
 
 

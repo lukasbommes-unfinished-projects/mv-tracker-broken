@@ -1,0 +1,1 @@
+python3 compute_metrics.py benchmark/MOT17/train output

@@ -22,25 +22,17 @@ class MotionVectorTracker:
         # match predicted (tracked) boxes with detected boxes
         matches, unmatched_trackers, unmatched_detectors = trackerlib.match_bounding_boxes(self.boxes, detection_boxes, self.iou_threshold)
 
-        #print("####")
-        #print("unmatched_trackers", unmatched_trackers, [str(self.box_ids[t])[:6] for t in unmatched_trackers])
-        #print("unmatched_detectors", unmatched_detectors)
-
         # handle matches
         for d, t in matches:
             self.boxes[t] = detection_boxes[d]
-            #print("Matched tracker {} with detector {}".format(str(self.box_ids[t])[:6], d))
 
         # handle unmatched detections by spawning new trackers
         for d in unmatched_detectors:
             self.boxes = np.vstack((self.boxes, detection_boxes[d]))
-            uid = uuid.uuid4()
-            self.box_ids.append(uid)
-            #print("Created new tracker {} for detector {}".format(str(uid)[:6], d))
+            self.box_ids.append(uuid.uuid4())
 
         # handle unmatched tracker predictions by removing trackers
         for t in unmatched_trackers:
-            #print("Removed tracker {}".format(str(self.box_ids[t])[:6]))
             self.boxes = np.delete(self.boxes, t, axis=0)
             self.box_ids.pop(t)
 
