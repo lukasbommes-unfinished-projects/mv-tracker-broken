@@ -35,6 +35,10 @@ RUN cd $HOME/video_cap && \
 #
 ###############################################################################
 
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	python3-tk && \
+	rm -rf /var/lib/apt/lists/*
+
 # Install Python packages
 COPY requirements.txt /
 RUN pip3 install --upgrade pip

@@ -58,7 +58,7 @@ def get_nonzero_vectors(motion_vectors):
         return motion_vectors
 
     else:
-        idx = np.where(np.logical_or(motion_vectors[:, 7] > 0, motion_vectors[:, 8] > 0))[0]
+        idx = np.where(np.logical_or(motion_vectors[:, 7] != 0, motion_vectors[:, 8] != 0))[0]
         return motion_vectors[idx, :]
 
 

@@ -7,7 +7,7 @@ import cv2
 import pickle
 
 from video_cap import VideoCap
-from mvt.utils import draw_motion_vectors, draw_boxes, draw_box_ids
+from mvt.utils import draw_motion_vectors, draw_boxes, draw_box_ids, draw_shifts
 
 from mvt.tracker import MotionVectorTracker
 from config import Config
@@ -92,13 +92,13 @@ if __name__ == "__main__":
 
         # draw info
         frame = cv2.putText(frame, "Frame Type: {}".format(frame_type), (1000, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
+        frame = cv2.putText(frame, "Step: {}".format(frame_idx), (1000, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)
 
         # draw color legend
         frame = cv2.putText(frame, "Last Detection", (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_detection, 2, cv2.LINE_AA)
         frame = cv2.putText(frame, "Tracker Prediction", (15, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_tracker, 2, cv2.LINE_AA)
         frame = cv2.putText(frame, "Groundtruth", (15, 95), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_gt, 2, cv2.LINE_AA)
         #frame = cv2.putText(frame, "Previous Prediction", (15, 130), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color_previous, 2, cv2.LINE_AA)
-
 
         # update with detections
         if frame_idx % Config.DETECTOR_INTERVAL == 0:
@@ -111,12 +111,28 @@ if __name__ == "__main__":
 
         track_boxes = tracker.get_boxes()
         track_ids = tracker.get_box_ids()
+        tracker_debug_data = tracker.get_debug_data()
 
         frame = draw_boxes(frame, det_boxes, color=color_detection)
         frame = draw_boxes(frame, track_boxes, color=color_tracker)
         frame = draw_boxes(frame, gt_boxes[frame_idx], color=color_gt)
         frame = draw_box_ids(frame, track_boxes, track_ids)
         frame = draw_box_ids(frame, det_boxes, range(len(detections)))
+
+        if tracker_debug_data["type"] == "predict":
+            frame = draw_shifts(frame, tracker_debug_data["shifts"], track_boxes)
+
+        # write data to file
+        # dev_output = {
+        #     "frame": frame,
+        #     "det_boxes": det_boxes,
+        #     "gt_ids": gt_ids[frame_idx],
+        #     "gt_boxes": gt_boxes[frame_idx],
+        #     "motion_vectors": motion_vectors,
+        #     "tracker_debug_data": tracker_debug_data,
+        #     "frame_type": frame_type
+        # }
+        # pickle.dump(dev_output, open("dev_output/{:08d}.pkl".format(frame_idx), "wb"))
 
         frame_idx += 1
         cv2.imshow("Frame", frame)

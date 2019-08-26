@@ -6,8 +6,10 @@ def draw_motion_vectors(frame, motion_vectors, color=(0, 0, 255)):
     if np.shape(motion_vectors)[0] > 0:
         num_mvs = np.shape(motion_vectors)[0]
         for mv in np.split(motion_vectors, num_mvs):
-            start_pt = (mv[0, 3], mv[0, 4])
-            end_pt = (mv[0, 5], mv[0, 6])
+            #start_pt = (mv[0, 3], mv[0, 4])
+            #end_pt = (mv[0, 5], mv[0, 6])
+            start_pt = (mv[0, 5], mv[0, 6])
+            end_pt = (mv[0, 3], mv[0, 4])
             cv2.arrowedLine(frame, start_pt, end_pt, color, 1, cv2.LINE_AA, 0, 0.3)
     return frame
 
@@ -40,4 +42,14 @@ def draw_box_ids(frame, bounding_boxes, box_ids, color=(0, 0, 255)):
         xmax = int(box[0] + box[2])
         ymax = int(box[1] + box[3])
         cv2.putText(frame, '{}'.format(str(box_id)[:6]), (xmin, ymin-5), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2, cv2.LINE_AA)
+    return frame
+
+
+def draw_shifts(frame, shifts, bounding_boxes, color=(255, 255, 255)):
+    if shifts is not None:
+        for box, shift in zip(bounding_boxes, shifts):
+            start_pt = (int(box[0] + box[2]/2), int(box[1] + box[3]/2))
+            end_pt = (int(start_pt[0] + shift[0]), int(start_pt[1] + shift[1]))
+            cv2.arrowedLine(frame, start_pt, end_pt, color, 1, cv2.LINE_AA, 0, 0.3)
+
     return frame

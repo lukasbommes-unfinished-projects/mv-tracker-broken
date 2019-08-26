@@ -6,3 +6,4 @@ __pycache__/
 /models/
 /benchmark/MOT17/train/
 /benchmark/MOT17/test/
+/dev_output/
