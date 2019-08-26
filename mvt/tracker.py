@@ -8,10 +8,13 @@ from mvt.utils import draw_motion_vectors, draw_boxes
 
 
 class MotionVectorTracker:
-    def __init__(self, iou_threshold):
+    def __init__(self, iou_threshold, use_kalman=True):
         self.iou_threshold = iou_threshold
+        self.use_kalman = use_kalman
         self.boxes = np.empty(shape=(0, 4))
         self.box_ids = []
+        if self.use_kalman:
+            self.filters = []
 
 
     def update(self, motion_vectors, frame_type, detection_boxes):
@@ -28,14 +31,23 @@ class MotionVectorTracker:
 
         # handle matches
         for d, t in matches:
-            self.boxes[t] = detection_boxes[d]
+            if self.use_kalman:
+                self.filters[t].predict()
+                self.filters[t].update(detection_boxes[d])
+                self.boxes[t] = self.filters[t].get_box_from_state()
+            else:
+                self.boxes[t] = detection_boxes[d]
             #print("Matched tracker {} with detector {}".format(str(self.box_ids[t])[:6], d))
 
         # handle unmatched detections by spawning new trackers
         for d in unmatched_detectors:
-            self.boxes = np.vstack((self.boxes, detection_boxes[d]))
             uid = uuid.uuid4()
             self.box_ids.append(uid)
+            self.boxes = np.vstack((self.boxes, detection_boxes[d]))
+            if self.use_kalman:
+                filter = trackerlib.Kalman()
+                filter.set_initial_state(detection_boxes[d])
+                self.filters.append(filter)
             #print("Created new tracker {} for detector {}".format(str(uid)[:6], d))
 
         # handle unmatched tracker predictions by removing trackers
@@ -43,6 +55,8 @@ class MotionVectorTracker:
             #print("Removed tracker {}".format(str(self.box_ids[t])[:6]))
             self.boxes = np.delete(self.boxes, t, axis=0)
             self.box_ids.pop(t)
+            if self.use_kalman:
+                self.filters.pop(t)
 
 
     def predict(self, motion_vectors, frame_type):
@@ -58,6 +72,12 @@ class MotionVectorTracker:
             motion_vector_subsets = trackerlib.get_vectors_in_boxes(motion_vectors, self.boxes)
             shifts = trackerlib.get_box_shifts(motion_vector_subsets, metric="median")
             self.boxes = trackerlib.adjust_boxes(self.boxes, shifts)
+
+            if self.use_kalman:
+                for t in range(len(self.filters)):
+                    self.filters[t].predict()
+                    self.filters[t].update(self.boxes[t])
+                    self.boxes[t] = self.filters[t].get_box_from_state()
 
 
     def get_boxes(self):

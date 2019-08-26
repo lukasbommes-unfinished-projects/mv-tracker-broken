@@ -1,7 +1,9 @@
 import numpy as np
-import cv2
+#import cv2
 import scipy
 from scipy import optimize
+from filterpy.kalman import KalmanFilter
+from filterpy.common import Q_discrete_white_noise, Q_continuous_white_noise
 
 
 def get_vectors_by_source(motion_vectors, source):
@@ -293,6 +295,88 @@ def match_bounding_boxes(t_boxes, d_boxes, iou_threshold):
     return matches, unmatched_trackers, unmatched_detectors
 
 
+# class Kalman():
+#     """Kalman filter for estimation of bounding boxes given noisy measurements.
+#
+#     Immplements a kalman filter for 8D state space
+#     xs = [cx, cy, a, h, vx, vy, va, vh] with center position (x, y),
+#     aspect ratio a and height h of bounding box. The first four parameters
+#     are directly measured by detection in irregular intervals.
+#     """
+#     def __init__(self, ucxy = 1./100., uah = 1./200., uvxy = 1./2500., uvah = 1./5000.):
+#         self.kalman_filter = cv2.KalmanFilter(8, 4)
+#         dt = 1.
+#         self.kalman_filter.transitionMatrix = np.array([[1,0,0,0,dt,0,0,0],
+#                                            [0,1,0,0,0,dt,0,0],
+#                                            [0,0,1,0,0,0,dt,0],
+#                                            [0,0,0,1,0,0,0,dt],
+#                                            [0,0,0,0,1,0,0,0],
+#                                            [0,0,0,0,0,1,0,0],
+#                                            [0,0,0,0,0,0,1,0],
+#                                            [0,0,0,0,0,0,0,1]], dtype=np.float32)
+#         self.kalman_filter.measurementMatrix = np.array([[1,0,0,0,0,0,0,0],
+#                                             [0,1,0,0,0,0,0,0],
+#                                             [0,0,1,0,0,0,0,0],
+#                                             [0,0,0,1,0,0,0,0]], dtype=np.float32)
+#         self.kalman_filter.processNoiseCov = np.array([[ucxy,0,0,0,0,0,0,0],
+#                                            [0,ucxy,0,0,0,0,0,0],
+#                                            [0,0,uah,0,0,0,0,0],
+#                                            [0,0,0,uah,0,0,0,0],
+#                                            [0,0,0,0,uvxy,0,0,0],
+#                                            [0,0,0,0,0,uvxy,0,0],
+#                                            [0,0,0,0,0,0,uvah,0],
+#                                            [0,0,0,0,0,0,0,uvah]], dtype=np.float32)
+#         self.kalman_filter.measurementNoiseCov = np.zeros((4, 4), dtype=np.float32)
+#
+#
+#     def correct(self, box):
+#         """Update the filter state based on a measured bounding box."""
+#         box_measured = self._box_to_measurement(box)
+#         self.kalman_filter.correct(box_measured)
+#
+#
+#     def predict(self):
+#         """Predict the next filter state."""
+#         self.kalman_filter.predict()
+#
+#
+#     def get_state_post(self):
+#         return _state_to_box(self.kalman_filter.statePost)
+#
+#
+#     def set_state_post(self, box):
+#         box_measured = self._box_to_measurement(box)
+#         self.kalman_filter.statePost = np.append(box_measured, [0., 0., 0., 0.]).reshape(8, 1)
+#
+#
+#     def _state_to_box(self, state):
+#         """Converts the filter's state to bounding box coordinates."""
+#         cx = state[0]
+#         cy = state[1]
+#         a = state[2]
+#         h = state[3]
+#         w = a*h
+#         x = cx-w/2
+#         y = cy-h/2
+#         return [x, y, w, h]
+#
+#
+#     def _box_to_measurement(self, box):
+#         """Converts bounding box coordinates into a measurement vector."""
+#         x = box[0]
+#         y = box[1]
+#         w = box[2]
+#         h = box[3]
+#         cx = x+w/2
+#         cy = y+h/2
+#         if h > 0:
+#             a = w/h
+#         else:
+#             a = 0
+#         box_measured = np.array([cx, cy, a, h], dtype=np.float32).reshape(4, 1)
+#         return box_measured
+
+
 class Kalman():
     """Kalman filter for estimation of bounding boxes given noisy measurements.
 
@@ -301,43 +385,50 @@ class Kalman():
     aspect ratio a and height h of bounding box. The first four parameters
     are directly measured by detection in irregular intervals.
     """
-    def __init__(self, ucxy = 1./100., uah = 1./200., uvxy = 1./2500., uvah = 1./5000.):
-        self.kalman_filter = cv2.KalmanFilter(8, 4)
+    def __init__(self):
+        self.kalman_filter = KalmanFilter(dim_x=8, dim_z=4)
         dt = 1.
-        self.kalman_filter.transitionMatrix = np.array([[1,0,0,0,dt,0,0,0],
-                                           [0,1,0,0,0,dt,0,0],
-                                           [0,0,1,0,0,0,dt,0],
-                                           [0,0,0,1,0,0,0,dt],
-                                           [0,0,0,0,1,0,0,0],
-                                           [0,0,0,0,0,1,0,0],
-                                           [0,0,0,0,0,0,1,0],
-                                           [0,0,0,0,0,0,0,1]], dtype=np.float32)
-        self.kalman_filter.measurementMatrix = np.array([[1,0,0,0,0,0,0,0],
-                                            [0,1,0,0,0,0,0,0],
-                                            [0,0,1,0,0,0,0,0],
-                                            [0,0,0,1,0,0,0,0]], dtype=np.float32)
-        self.kalman_filter.processNoiseCov = np.array([[ucxy,0,0,0,0,0,0,0],
-                                           [0,ucxy,0,0,0,0,0,0],
-                                           [0,0,uah,0,0,0,0,0],
-                                           [0,0,0,uah,0,0,0,0],
-                                           [0,0,0,0,uvxy,0,0,0],
-                                           [0,0,0,0,0,uvxy,0,0],
-                                           [0,0,0,0,0,0,uvah,0],
-                                           [0,0,0,0,0,0,0,uvah]], dtype=np.float32)
-        self.kalman_filter.measurementNoiseCov = np.zeros((4, 4), dtype=np.float32)
+        # state transition matrix
+        self.kalman_filter.F = np.array([[1,0,0,0,dt,0,0,0],
+                                         [0,1,0,0,0,dt,0,0],
+                                         [0,0,1,0,0,0,dt,0],
+                                         [0,0,0,1,0,0,0,dt],
+                                         [0,0,0,0,1,0,0,0],
+                                         [0,0,0,0,0,1,0,0],
+                                         [0,0,0,0,0,0,1,0],
+                                         [0,0,0,0,0,0,0,1]], dtype=np.float32)
+        # measurement matrix
+        self.kalman_filter.H = np.array([[1,0,0,0,0,0,0,0],
+                                         [0,1,0,0,0,0,0,0],
+                                         [0,0,1,0,0,0,0,0],
+                                         [0,0,0,1,0,0,0,0]], dtype=np.float32)
+        # measurement noise matrix
+        self.kalman_filter.R = np.zeros((4, 4), dtype=np.float32)
+        # process noise matrix
+        self.kalman_filter.Q = Q_discrete_white_noise(dim=2, dt=1.0, var=1.0, block_size=4, order_by_dim=False)
+        #self.kalman_filter.Q = Q_continuous_white_noise(dim=2, dt=1.0, spectral_density=1.0, block_size=4, order_by_dim=False)
+        # initial covariance estimate (initially identiy matrix)
+        self.kalman_filter.P *= 1000.
 
 
-    def correct(self, box_measured):
+    def update(self, box):
         """Update the filter state based on a measured bounding box."""
-        box_measured = self._box_to_measurement(box_measured)
-        self.kalman_filter.correct(box_measured)
+        box_measured = self._box_to_measurement(box)
+        self.kalman_filter.update(box_measured)
 
 
     def predict(self):
-        """Predict the next filter state and convert it into a bounding box."""
-        state_predicted = self.kalman_filter.predict()
-        box_predicted = self._state_to_box(state_predicted)
-        return box_predicted
+        """Predict the next filter state."""
+        self.kalman_filter.predict()
+
+
+    def get_box_from_state(self):
+        return self._state_to_box(self.kalman_filter.x)
+
+
+    def set_initial_state(self, box):
+        box_measured = self._box_to_measurement(box)
+        self.kalman_filter.x = np.append(box_measured, [0., 0., 0., 0.]).reshape(8, 1)
 
 
     def _state_to_box(self, state):
