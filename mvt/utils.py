@@ -2,15 +2,16 @@ import cv2
 import numpy as np
 
 
-def draw_motion_vectors(frame, motion_vectors, color=(0, 0, 255)):
+def draw_motion_vectors(frame, motion_vectors):
     if np.shape(motion_vectors)[0] > 0:
         num_mvs = np.shape(motion_vectors)[0]
         for mv in np.split(motion_vectors, num_mvs):
-            #start_pt = (mv[0, 3], mv[0, 4])
-            #end_pt = (mv[0, 5], mv[0, 6])
             start_pt = (mv[0, 5], mv[0, 6])
             end_pt = (mv[0, 3], mv[0, 4])
-            cv2.arrowedLine(frame, start_pt, end_pt, color, 1, cv2.LINE_AA, 0, 0.3)
+            if mv[0, 0] < 0:
+                cv2.arrowedLine(frame, start_pt, end_pt, (0, 0, 255), 1, cv2.LINE_AA, 0, 0.3)
+            else:
+                cv2.arrowedLine(frame, start_pt, end_pt, (0, 255, 0), 1, cv2.LINE_AA, 0, 0.3)
     return frame
 
 

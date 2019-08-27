@@ -65,7 +65,7 @@ if __name__ == "__main__":
     tracker = MotionVectorTracker(iou_threshold=Config.TRACKER_IOU_THRES)
     cap = VideoCap()
 
-    ret = cap.open(os.path.join(data_dir, "seq.avi"))
+    ret = cap.open(os.path.join(data_dir, "seq.mp4"))
     if not ret:
         raise RuntimeError("Could not open the video file")
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             break
 
         # draw entire field of motion vectors
-        frame = draw_motion_vectors(frame, motion_vectors, color=(0, 0, 255))
+        frame = draw_motion_vectors(frame, motion_vectors)
 
         # draw info
         frame = cv2.putText(frame, "Frame Type: {}".format(frame_type), (1000, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2, cv2.LINE_AA)

@@ -35,12 +35,11 @@ def get_vectors_by_source(motion_vectors, source):
 
     Returns:
         motion_vectors (`numpy.ndarray`): Array of shape (M, 11) containing all
-            M motion vectors with the specified source value. If N = 0 => M = 0
-            that is an empty numpy array of shape (0, 11) is returned.
+        M motion vectors with the specified source value. If N = 0 => M = 0
+        that is an empty numpy array of shape (0, 11) is returned.
     """
     if np.shape(motion_vectors)[0] == 0:
         return motion_vectors
-
     else:
         if source == "past":
             idx = np.where(motion_vectors[:, 0] < 0)[0]
@@ -51,12 +50,37 @@ def get_vectors_by_source(motion_vectors, source):
         return motion_vectors[idx, :]
 
 
+def normalize_vectors(motion_vectors):
+    """Normalizes motion vectors to the past frame as reference frame.
+
+    The source value in the first column is set to -1 for all frames. The x and
+    y motion values are scaled accordingly. Vector source position and
+    destination position are unchanged.
+
+    Args:
+        motion_vectors (`numpy.ndarray`): Array of shape (N, 11) containing all
+            N motion vectors inside a frame. N = 0 is allowed meaning no vectors
+            are present in the frame.
+
+    Returns:
+        motion_vectors (`numpy.ndarray`): Array of shape (M, 11) containing the
+        normalized motion vectors. If N = 0 => M = 0 that is an empty numpy
+        array of shape (0, 11) is returned.
+    """
+    if np.shape(motion_vectors)[0] == 0:
+        return motion_vectors
+    else:
+        motion_vectors[:, 7] = motion_vectors[:, 7] / motion_vectors[:, 0]  # motion_x
+        motion_vectors[:, 8] = motion_vectors[:, 8] / motion_vectors[:, 0]  # motion_y
+        motion_vectors[:, 0] = -1 * np.ones_like(motion_vectors[:, 0])
+        return motion_vectors
+
+
 def get_nonzero_vectors(motion_vectors):
     """Returns subset of motion vectors which have non-zero magnitude.
     """
     if np.shape(motion_vectors)[0] == 0:
         return motion_vectors
-
     else:
         idx = np.where(np.logical_or(motion_vectors[:, 7] != 0, motion_vectors[:, 8] != 0))[0]
         return motion_vectors[idx, :]
@@ -80,15 +104,14 @@ def get_vectors_in_boxes(motion_vectors, boxes):
 
     Returns:
         motion_vectors_subsets (`list` of `numpy.ndarray`): Each list entry
-            corresponds to a bounding box in the boxes array and is an array of
-            shape (M, 11) of all M motion vectors starting inside the
-            corresponding box. If N = 0 or K = 0 an empty list is returned. If
-            no motion vector falls into a bounding box the corresponding list
-            entry if an empty numpy array of shape (0, 11).
+        corresponds to a bounding box in the boxes array and is an array of
+        shape (M, 11) of all M motion vectors starting inside the
+        corresponding box. If N = 0 or K = 0 an empty list is returned. If
+        no motion vector falls into a bounding box the corresponding list
+        entry if an empty numpy array of shape (0, 11).
     """
     if np.shape(motion_vectors)[0] == 0 or np.shape(boxes)[0] == 0:
         return []
-
     else:
         motion_vector_subsets = []
         for box in np.split(boxes, np.shape(boxes)[0]):
@@ -112,7 +135,8 @@ def get_box_shifts(motion_vector_subsets, metric="median"):
 
     This method computes the shifts of the bounding box from the motion vectors
     reference frame to the current frame. The shift is computed as mean of the
-    x/y component of all motion vectors inside the bounding box.
+    x/y component of all motion vectors inside the bounding box. This method
+    assumes normalized motion vectors.
 
     Args:
         motion_vector_subsets (`numpy.ndarray`): The motion vectors inside every
@@ -124,10 +148,10 @@ def get_box_shifts(motion_vector_subsets, metric="median"):
 
     Returns:
         shifts (`numpy.ndarray`): Array of shape (K, 2) containing the desired
-            shifts in pixels in x and y direction of each of the K query boxes.
-            A negative sign indicates movement in the negative x or y direction
-            (left and up). If N = 0 an empty numpy array of shape (0, 2) is
-            returned.
+        shifts in pixels in x and y direction of each of the K query boxes.
+        A negative sign indicates movement in the negative x or y direction
+        (left and up). If N = 0 an empty numpy array of shape (0, 2) is
+        returned.
     """
     num_boxes = np.shape(motion_vector_subsets)[0]
     shifts = np.zeros((num_boxes, 2))
@@ -136,8 +160,8 @@ def get_box_shifts(motion_vector_subsets, metric="median"):
         if np.shape(mv_subset)[0] > 0:
 
             # compute the vector components
-            mvs_xc = - mv_subset[:, 7] / (mv_subset[:, 9] * np.absolute(mv_subset[:, 0]))  # motion_x / (motion_scale * abs(source))
-            mvs_yc = - mv_subset[:, 8] / (mv_subset[:, 9] * np.absolute(mv_subset[:, 0]))  # motion_y / (motion_scale * abs(source))
+            mvs_xc = mv_subset[:, 7] / mv_subset[:, 9]  # motion_x / (motion_scale * source)
+            mvs_yc = mv_subset[:, 8] / mv_subset[:, 9]  # motion_y / (motion_scale * source)
 
             # compute edge shifts as weighted averages of the x/y components of all vectors
             if metric == "mean":
@@ -168,13 +192,12 @@ def adjust_boxes(boxes, shifts):
 
     Returns:
         shifted boxes (`numpy.ndarray`): Same shape as input boxes, but boxes
-            are shifted by the specified amounts. If either boxes or shifts are
-            an empty array, this functions also returns an empty array of shape
-            (0, 4).
+        are shifted by the specified amounts. If either boxes or shifts are
+        an empty array, this functions also returns an empty array of shape
+        (0, 4).
     """
     if np.shape(boxes)[0] == 0 or np.shape(shifts)[0] == 0:
         return np.empty(shape=(0, 4))
-
     else:
         boxes_adjusted = np.copy(boxes)
         boxes_adjusted[:, 0] = boxes[:, 0] + shifts[:, 0]  # xmin + x_shift
@@ -193,7 +216,7 @@ def compute_iou(boxA, boxB):
 
     Returns:
         IoU (`float`): The IoU of the two boxes. It is within the range [0, 1],
-            0 meaning no overlap and 1 meaning full overlap of the two boxes.
+        0 meaning no overlap and 1 meaning full overlap of the two boxes.
     """
     def _intersection(boxA, boxB):
         x = np.max((boxA[0], boxB[0]))

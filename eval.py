@@ -38,7 +38,7 @@ if __name__ == "__main__":
         data_dirs += train_dirs
 
     for data_dir in data_dirs:
-        video_file = os.path.join(data_dir, 'seq.avi')
+        video_file = os.path.join(data_dir, 'seq.mp4')
 
         num_frames = len(glob.glob(os.path.join(data_dir, 'img1/*.jpg')))
 

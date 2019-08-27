@@ -14,6 +14,7 @@ class MotionVectorTracker:
         self.use_kalman = use_kalman
         self.boxes = np.empty(shape=(0, 4))
         self.box_ids = []
+        self.last_motion_vectors = np.empty(shape=(0, 10))
         self.debug_data = None
         if self.use_kalman:
             self.filters = []
@@ -68,31 +69,34 @@ class MotionVectorTracker:
 
 
     def predict(self, motion_vectors, frame_type):
+
         # I frame has no motion vectors
         if frame_type != "I":
 
-            # get non-zero motion vectors which refer to the past frame (source = -1)
+            # get non-zero motion vectors and normalize them to point to the past frame (source = -1)
             motion_vectors = trackerlib.get_nonzero_vectors(motion_vectors)
-            motion_vectors = trackerlib.get_vectors_by_source(motion_vectors, source=-1)
+            motion_vectors = trackerlib.normalize_vectors(motion_vectors)
 
-            # shift the box edges based on the contained motion vectors
-            motion_vector_subsets = trackerlib.get_vectors_in_boxes(motion_vectors, self.boxes)
-            shifts = trackerlib.get_box_shifts(motion_vector_subsets, metric="median")
-            self.boxes = trackerlib.adjust_boxes(self.boxes, shifts)
+            self.last_motion_vectors = motion_vectors
 
-            if self.use_kalman:
-                for t in range(len(self.filters)):
-                    self.filters[t].predict()
-                    self.filters[t].update(self.boxes[t])
-                    self.boxes[t] = self.filters[t].get_box_from_state()
+        # shift the box edges based on the contained motion vectors
+        motion_vector_subsets = trackerlib.get_vectors_in_boxes(self.last_motion_vectors, self.boxes)
+        shifts = trackerlib.get_box_shifts(motion_vector_subsets, metric="median")
+        self.boxes = trackerlib.adjust_boxes(self.boxes, shifts)
 
-            self.debug_data = {
-                "box_ids": self.box_ids,
-                "boxes": self.boxes,
-                "shifts": shifts,
-                "motion_vector_subsets": motion_vector_subsets,
-                "type": "predict"
-            }
+        if self.use_kalman:
+            for t in range(len(self.filters)):
+                self.filters[t].predict()
+                self.filters[t].update(self.boxes[t])
+                self.boxes[t] = self.filters[t].get_box_from_state()
+
+        self.debug_data = {
+            "box_ids": self.box_ids,
+            "boxes": self.boxes,
+            "shifts": shifts,
+            "motion_vector_subsets": motion_vector_subsets,
+            "type": "predict"
+        }
 
 
     def get_boxes(self):

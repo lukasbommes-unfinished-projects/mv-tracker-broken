@@ -6,4 +6,9 @@ __pycache__/
 /models/
 /benchmark/MOT17/train/
 /benchmark/MOT17/test/
+/benchmark/OTB/
+/benchmark/MOT17/MOT17.zip
 /dev_output/
+
+/dev_output_mpeg4/
+/output_b_vecs/
