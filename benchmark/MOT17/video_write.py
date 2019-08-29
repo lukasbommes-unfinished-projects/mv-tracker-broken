@@ -37,4 +37,4 @@ if __name__ == "__main__":
     for mode in ["train", "test"]:
         for dir_name, frame_rate in zip(dir_names[mode], frame_rates[mode]):
             os.chdir(os.path.join(cwd, mode, "{}-DPM".format(dir_name), 'img1'))
-            subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'libx264', '-g', '10', '../../../sequences/{}.mp4'.format(dir_name)])
+            subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'libx264', '../../../sequences/{}.mp4'.format(dir_name)])
