@@ -80,8 +80,6 @@ if __name__ == "__main__":
 
                 track_boxes = tracker.get_boxes()
                 track_ids = tracker.get_box_ids()
-                #frame = draw_boxes(frame, track_boxes, color=(0, 0, 255))
-                #frame = draw_box_ids(frame, track_boxes, track_ids)
 
                 for track_box, track_id in zip(track_boxes, track_ids):
                     csv_writer.writerow([frame_idx+1, track_id, track_box[0], track_box[1],

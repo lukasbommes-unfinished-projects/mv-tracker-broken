@@ -6,7 +6,11 @@ __pycache__/
 /models/
 /benchmark/MOT17/train/
 /benchmark/MOT17/test/
-/benchmark/OTB/
+/benchmark/MOT17/preprocessed/
+/benchmark/MOT17/sequences/
+
+/deep_tracker/models/*.pkl
+
 /benchmark/MOT17/MOT17.zip
 /dev_output/
 
