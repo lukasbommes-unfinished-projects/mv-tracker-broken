@@ -117,10 +117,10 @@ if __name__ == "__main__":
 
     frame_shapes = {
         "train": [(1920, 1080),  # MOT17-02
-                  (1920, 1080)],  # MOT17-04
+                  (1920, 1080),  # MOT17-04
                   #(640, 480),   # MOT17-05
-                  #(1920, 1080),  # MOT17-11
-                  #(1920, 1080)], # MOT17-13
+                  (1920, 1080),  # MOT17-11
+                  (1920, 1080)], # MOT17-13
         "val": [(1920, 1080),    # MOT17-09
                 (1920, 1080)],    # MOT17-10
         "test": [(1920, 1080),   # MOT17-01
@@ -130,6 +130,23 @@ if __name__ == "__main__":
                  (1920, 1080),   # MOT17-08
                  (1920, 1080),   # MOT17-12
                  (1920, 1080)]   # MOT17-14
+    }
+
+    lengths = {
+        "train": [600,  # MOT17-02
+                  1050,  # MOT17-04
+                  #837,   # MOT17-05
+                  900,  # MOT17-11
+                  750], # MOT17-13
+        "val": [525,    # MOT17-09
+                654],    # MOT17-10
+        "test": [450,   # MOT17-01
+                 1500,   # MOT17-03
+                 #1194,    # MOT17-06
+                 500,   # MOT17-07
+                 625,   # MOT17-08
+                 900,   # MOT17-12
+                 750]   # MOT17-14
     }
 
     for mode in ["train", "val", "test"]:
@@ -156,44 +173,28 @@ if __name__ == "__main__":
             if not ret:
                 raise RuntimeError("Could not open the video file")
 
-            _ = cap.read()
-
-            frame_idx_no_skip = 0  # running index which does not get influenced by I frames
-
             pbar = tqdm(total=num_frames)
-            pbar.update()
-            for frame_idx in range(1, num_frames):
+            for frame_idx in range(0, num_frames):
                 ret, frame, motion_vectors, frame_type, _ = cap.read()
                 if not ret:
                     break
 
                 pbar.update()
 
-                # skip I frames in train and val set because they do not have motion vectors
-                if frame_type == "I" and (mode == "train" or mode == "val"):
-                    continue
-
                 data_item = {
                     "frame_idx": frame_idx,
-                    "frame_idx_no_skip": frame_idx_no_skip,
                     "sequence": sequence,
                     "frame_type": frame_type,
                     "det_boxes": detections[frame_idx]
                 }
 
-                frame_idx_no_skip += 1
-
                 # bounding boxes
                 if mode == "train" or mode == "val":
                     data_item["gt_boxes"] = gt_boxes[frame_idx]
                     data_item["gt_ids"] = gt_ids[frame_idx]
-                    data_item["gt_boxes_prev"] = gt_boxes[frame_idx-1]
-                    data_item["gt_ids_prev"] = gt_ids[frame_idx-1]
                 else:
                     data_item["gt_boxes"] = []
                     data_item["gt_ids"] = []
-                    data_item["gt_boxes_prev"] = []
-                    data_item["gt_ids_prev"] = []
 
 
                 # motion vectors (interpolated on regular 16x16 grid)
@@ -204,13 +205,7 @@ if __name__ == "__main__":
                     mvs_interp = mvs_interp.permute(2, 0, 1).float()  # store as C, H, W
                     data_item["motion_vectors"] = mvs_interp
                 else:
-                    data_item["motion_vectors"] = torch.empty([0, 10], dtype=torch.float)
-
-
-                #_, idx_1, idx_0 = np.intersect1d(gt_ids[frame_idx], gt_ids[frame_idx-1], assume_unique=True, return_indices=True)
-                #velocities = gt_boxes[frame_idx][idx_1] - gt_boxes[frame_idx-1][idx_0]
-                #box_velocities.append(torch.from_numpy(velocities))
-                #bounding_boxes.append(gt_boxes[frame_idx])
+                    data_item["motion_vectors"] = torch.empty([2, 68, 120], dtype=torch.float)
 
                 data.append(data_item)
 
@@ -218,3 +213,4 @@ if __name__ == "__main__":
             pbar.close()
 
         pickle.dump(data, open(os.path.join("preprocessed", mode, "data.pkl"), 'wb'))
+        pickle.dump(lengths[mode], open(os.path.join("preprocessed", mode, "lengths.pkl"), 'wb'))

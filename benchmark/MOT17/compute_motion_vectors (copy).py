@@ -10,6 +10,18 @@ from scipy.interpolate import griddata
 from video_cap import VideoCap
 
 
+def load_detections(det_file, num_frames):
+    detections = []
+    raw_data = np.genfromtxt(det_file, delimiter=',')
+    for frame_idx in range(num_frames):
+        idx = np.where(raw_data[:, 0] == frame_idx+1)
+        if idx[0].size:
+            detections.append(np.stack(raw_data[idx], axis=0)[:, 2:6])
+        else:
+            detections.append(np.empty(shape=(0,10)))
+    return detections
+
+
 def load_groundtruth(gt_file, only_eval=False):
     """
     Args:
@@ -95,7 +107,7 @@ if __name__ == "__main__":
         "test": [
             "MOT17-01",
             "MOT17-03",
-            #"MOT17-06",
+            "MOT17-06",
             "MOT17-07",
             "MOT17-08",
             "MOT17-12",
@@ -122,19 +134,18 @@ if __name__ == "__main__":
 
     for mode in ["train", "val", "test"]:
 
-        mvs = []
-        bounding_boxes = []
-        box_velocities = []
+        data = []
 
         for sequence, frame_shape in zip(sequences[mode], frame_shapes[mode]):
 
             if mode == "val":
-                dirname = os.path.join("train", "{}-DPM".format(sequence))
+                dirname = os.path.join("train", "{}-FRCNN".format(sequence))
             else:
-                dirname = os.path.join(mode, "{}-DPM".format(sequence))
+                dirname = os.path.join(mode, "{}-FRCNN".format(sequence))
 
             video_file = os.path.join("sequences", "{}.mp4".format(sequence))
             num_frames = len(glob.glob(os.path.join(dirname, 'img1/*.jpg')))
+            detections = load_detections(os.path.join(dirname, 'det/det.txt'), num_frames)
             if mode == "train" or mode == "val":
                 gt_ids, gt_boxes, _ = load_groundtruth(os.path.join(dirname, 'gt/gt.txt'), only_eval=True)
 
@@ -145,7 +156,9 @@ if __name__ == "__main__":
             if not ret:
                 raise RuntimeError("Could not open the video file")
 
-            _ = cap.read()  # dump first frame as we can not compute velocities
+            _ = cap.read()
+
+            frame_idx_no_skip = 0  # running index which does not get influenced by I frames
 
             pbar = tqdm(total=num_frames)
             pbar.update()
@@ -156,27 +169,52 @@ if __name__ == "__main__":
 
                 pbar.update()
 
-                if not motion_vectors.size:
+                # skip I frames in train and val set because they do not have motion vectors
+                if frame_type == "I" and (mode == "train" or mode == "val"):
                     continue
 
-                # compute box velocities from groundtruth
+                data_item = {
+                    "frame_idx": frame_idx,
+                    "frame_idx_no_skip": frame_idx_no_skip,
+                    "sequence": sequence,
+                    "frame_type": frame_type,
+                    "det_boxes": detections[frame_idx]
+                }
+
+                frame_idx_no_skip += 1
+
+                # bounding boxes
                 if mode == "train" or mode == "val":
-                    _, idx_1, idx_0 = np.intersect1d(gt_ids[frame_idx], gt_ids[frame_idx-1], assume_unique=True, return_indices=True)
-                    velocities = gt_boxes[frame_idx][idx_1] - gt_boxes[frame_idx-1][idx_0]
-                    box_velocities.append(torch.from_numpy(velocities))
+                    data_item["gt_boxes"] = gt_boxes[frame_idx]
+                    data_item["gt_ids"] = gt_ids[frame_idx]
+                    data_item["gt_boxes_prev"] = gt_boxes[frame_idx-1]
+                    data_item["gt_ids_prev"] = gt_ids[frame_idx-1]
+                else:
+                    data_item["gt_boxes"] = []
+                    data_item["gt_ids"] = []
+                    data_item["gt_boxes_prev"] = []
+                    data_item["gt_ids_prev"] = []
 
-                    bounding_boxes.append(gt_boxes[frame_idx])
 
-                # preprocess motion vectors
-                motion_vectors = normalize_vectors(motion_vectors)
-                mvs_x_interp, mvs_y_interp = interp_motion_vectors(motion_vectors, frame_shape)
-                mvs_interp = torch.from_numpy(np.dstack((mvs_x_interp, mvs_y_interp)))
-                mvs.append(mvs_interp)
+                # motion vectors (interpolated on regular 16x16 grid)
+                if frame_type != "I":
+                    motion_vectors = normalize_vectors(motion_vectors)
+                    mvs_x_interp, mvs_y_interp = interp_motion_vectors(motion_vectors, frame_shape)
+                    mvs_interp = torch.from_numpy(np.dstack((mvs_x_interp, mvs_y_interp)))
+                    mvs_interp = mvs_interp.permute(2, 0, 1).float()  # store as C, H, W
+                    data_item["motion_vectors"] = mvs_interp
+                else:
+                    data_item["motion_vectors"] = torch.empty([0, 10], dtype=torch.float)
+
+
+                #_, idx_1, idx_0 = np.intersect1d(gt_ids[frame_idx], gt_ids[frame_idx-1], assume_unique=True, return_indices=True)
+                #velocities = gt_boxes[frame_idx][idx_1] - gt_boxes[frame_idx-1][idx_0]
+                #box_velocities.append(torch.from_numpy(velocities))
+                #bounding_boxes.append(gt_boxes[frame_idx])
+
+                data.append(data_item)
 
             cap.release()
             pbar.close()
 
-        pickle.dump(mvs, open("preprocessed/motion_vectors_{}.pkl".format(mode), 'wb'))
-        pickle.dump(bounding_boxes, open("preprocessed/bounding_boxes_{}.pkl".format(mode), 'wb'))
-        if mode == "train" or mode == "val":
-            pickle.dump(box_velocities, open("preprocessed/box_velocities_{}.pkl".format(mode), 'wb'))
+        pickle.dump(data, open(os.path.join("preprocessed", mode, "data.pkl"), 'wb'))
