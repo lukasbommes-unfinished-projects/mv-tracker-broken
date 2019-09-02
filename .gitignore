@@ -10,6 +10,7 @@ __pycache__/
 /benchmark/MOT17/sequences/
 
 /deep_tracker/models/*.pkl
+deep_tracker/pytorch/
 
 /benchmark/MOT17/MOT17.zip
 /dev_output/

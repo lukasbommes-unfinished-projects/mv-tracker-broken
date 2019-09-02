@@ -1,0 +1,19 @@
+version: "2.3"
+
+services:
+
+  mv_tracker_deep_tracker:
+    container_name: mv_tracker_deep_tracker
+    image: pytorch
+    runtime: nvidia
+    environment:
+      - DISPLAY
+    ipc: host # for GUI
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # for GUI access
+      - .:/workspace
+      - ../benchmark/MOT17:/workspace/data
+    ports:
+      - "88:8888"
+    entrypoint: ./docker-entrypoint.sh
+    command: tail -f /dev/null

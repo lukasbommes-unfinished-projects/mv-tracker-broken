@@ -1,0 +1,1 @@
+sudo nvidia-docker run --rm -ti --ipc=host -v $(pwd):/workspace pytorch
