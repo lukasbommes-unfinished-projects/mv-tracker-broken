@@ -94,7 +94,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
             motion_vectors = self.data[idx]["motion_vectors"]
 
-            frame_idx = self.data[idx]["frame_idx"]
+            frame_idx = self.data[idx]["frame_idx_no_skip"]
             gt_ids = self.data[idx]["gt_ids"]
             gt_boxes = self.data[idx]["gt_boxes"]
             gt_ids_prev = self.data[idx]["gt_ids_prev"]
@@ -169,17 +169,15 @@ class PropagationNetwork(nn.Module):
         boxes_prev = self._change_box_format(boxes_prev)
         boxes_prev = boxes_prev[num_boxes_mask]
         boxes_prev = boxes_prev.view(-1, 5)
-        print(boxes_prev.shape)
+        # offset frame_idx so that it corresponds to batch index
+        boxes_prev[..., :, 0] = boxes_prev[..., :, 0] - boxes_prev[..., 0, 0]
 
         # compute ratio of input size to size of base output
         spatial_scale = x.shape[-1] / (motion_vectors.shape)[-1]
         x = ops.ps_roi_pool(x, boxes_prev, output_size=(self.m, self.m), spatial_scale=spatial_scale)
-        print("after roi_pool", x.shape)
-
-        x = x.mean(-1).mean(-1)
-        print("after averaging", x.shape)
-
-        velocities_pred = x
+        #print("after roi_pool", x.shape)
+        velocities_pred = x.mean(-1).mean(-1)
+        #print("after averaging", velocities_pred.shape)
 
         return velocities_pred
 
@@ -218,7 +216,6 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 velocities = velocities.to(device)
                 num_boxes_mask = num_boxes_mask.to(device)
 
-                print(step)
                 velocities = velocities[num_boxes_mask]
                 velocities = velocities.view(-1, 4)
 
@@ -227,26 +224,29 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 with torch.set_grad_enabled(phase == "train"):
                     velocities_pred = model(motion_vectors, boxes_prev, num_boxes_mask)
 
-            #         loss = criterion(velocities_pred, velocities)
-            #
-            #         if phase == "train":
-            #             loss.backward()
-            #             optimizer.step()
-            #             scheduler.step()
-            #
-            #     running_loss += loss.item() * motion_vectors.size(0)
-            #
-            # epoch_loss = running_loss / len(datasets[phase])
-            # print('{} Loss: {:.4f}'.format(phase, epoch_loss))
-            #
-            # if phase == "val":
-            #     model_wts = copy.deepcopy(model.state_dict())
-            #     pickle.dump(best_model_wts, open("models/model_{:04d}.pkl".format(epoch), "wb"))
-            #
-            # if phase == "val" and epoch_loss < best_loss:
-            #     best_loss = epoch_loss
-            #     best_model_wts = copy.deepcopy(model.state_dict())
-            #     pickle.dump(best_model_wts, open("models/best_model.pkl", "wb"))
+                    print(velocities)
+                    print(velocities_pred)
+
+                    loss = criterion(velocities_pred, velocities)
+
+                    if phase == "train":
+                        loss.backward()
+                        optimizer.step()
+                        scheduler.step()
+
+                running_loss += loss.item() * motion_vectors.size(0)
+
+            epoch_loss = running_loss / len(datasets[phase])
+            print('{} Loss: {:.4f}'.format(phase, epoch_loss))
+
+            if phase == "val":
+                model_wts = copy.deepcopy(model.state_dict())
+                pickle.dump(best_model_wts, open("models/model_{:04d}.pkl".format(epoch), "wb"))
+
+            if phase == "val" and epoch_loss < best_loss:
+                best_loss = epoch_loss
+                best_model_wts = copy.deepcopy(model.state_dict())
+                pickle.dump(best_model_wts, open("models/best_model.pkl", "wb"))
 
     time_elapsed = time.time() - tstart
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -256,17 +256,15 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
     return model
 
 
-if __name__ == "__main__":
+datasets = {x: MotionVectorDataset(root_dir='data', mode=x) for x in ["train", "val", "test"]}
+dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=2, shuffle=False, num_workers=4) for x in ["train", "val", "test"]}
 
-    datasets = {x: MotionVectorDataset(root_dir='data', mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=1, shuffle=False, num_workers=4) for x in ["train", "val", "test"]}
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+model = PropagationNetwork()
+model = model.to(device)
 
-    model = PropagationNetwork()
-    model = model.to(device)
-
-    criterion = nn.SmoothL1Loss(reduction='mean')
-    optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=8, gamma=0.1)
-    best_model = train(model, criterion, optimizer, scheduler, num_epochs=60)
+criterion = nn.SmoothL1Loss(reduction='mean')
+optimizer = optim.SGD(model.parameters(), lr=0.0001, momentum=0.9)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=8, gamma=0.1)
+best_model = train(model, criterion, optimizer, scheduler, num_epochs=60)

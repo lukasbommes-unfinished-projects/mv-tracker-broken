@@ -107,7 +107,7 @@ if __name__ == "__main__":
         "test": [
             "MOT17-01",
             "MOT17-03",
-            #"MOT17-06",
+            "MOT17-06",
             "MOT17-07",
             "MOT17-08",
             "MOT17-12",
@@ -117,10 +117,10 @@ if __name__ == "__main__":
 
     frame_shapes = {
         "train": [(1920, 1080),  # MOT17-02
-                  (1920, 1080),  # MOT17-04
+                  (1920, 1080)],  # MOT17-04
                   #(640, 480),   # MOT17-05
-                  (1920, 1080),  # MOT17-11
-                  (1920, 1080)], # MOT17-13
+                  #(1920, 1080),  # MOT17-11
+                  #(1920, 1080)], # MOT17-13
         "val": [(1920, 1080),    # MOT17-09
                 (1920, 1080)],    # MOT17-10
         "test": [(1920, 1080),   # MOT17-01
@@ -158,6 +158,8 @@ if __name__ == "__main__":
 
             _ = cap.read()
 
+            frame_idx_no_skip = 0  # running index which does not get influenced by I frames
+
             pbar = tqdm(total=num_frames)
             pbar.update()
             for frame_idx in range(1, num_frames):
@@ -173,10 +175,13 @@ if __name__ == "__main__":
 
                 data_item = {
                     "frame_idx": frame_idx,
+                    "frame_idx_no_skip": frame_idx_no_skip,
                     "sequence": sequence,
                     "frame_type": frame_type,
                     "det_boxes": detections[frame_idx]
                 }
+
+                frame_idx_no_skip += 1
 
                 # bounding boxes
                 if mode == "train" or mode == "val":
