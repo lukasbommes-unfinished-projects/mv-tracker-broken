@@ -205,7 +205,7 @@ if __name__ == "__main__":
                     mvs_interp = mvs_interp.permute(2, 0, 1).float()  # store as C, H, W
                     data_item["motion_vectors"] = mvs_interp
                 else:
-                    data_item["motion_vectors"] = torch.empty([2, 68, 120], dtype=torch.float)
+                    data_item["motion_vectors"] = torch.zeros([2, 68, 120], dtype=torch.float)
 
                 data.append(data_item)
 
