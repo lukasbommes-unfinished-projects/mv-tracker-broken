@@ -45,3 +45,11 @@ def draw_boxes(frame, bounding_boxes, box_ids=None, color=(0, 255, 0)):
             ymax = int(box[1] + box[3])
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2, cv2.LINE_4)
     return frame
+
+
+def draw_velocities(frame, bounding_boxes, velocities):
+    for box, velocity in zip(bounding_boxes, velocities):
+        start_pt = (int(box[0] + 0.5 * box[2]), int(box[1] + 0.5 * box[3]))
+        end_pt = (int(start_pt[0] + 100*velocity[0]), int(start_pt[1] + 100*velocity[1]))
+        cv2.arrowedLine(frame, start_pt, end_pt, (255, 255, 255), 1, cv2.LINE_AA, 0, 0.3)
+    return frame
