@@ -15,5 +15,8 @@ deep_tracker/pytorch/
 /benchmark/MOT17/MOT17.zip
 /dev_output/
 
+/benchmark/MOT15/
+/benchmark/MOT16/
+
 /dev_output_mpeg4/
 /output_b_vecs/

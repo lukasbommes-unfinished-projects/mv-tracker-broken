@@ -1,5 +1,6 @@
 import os
 import glob
+import math
 import pickle
 
 import torch
@@ -90,6 +91,18 @@ def interp_motion_vectors(motion_vectors, frame_shape=(1920, 1080)):
     return mvs_x_motion_interp, mvs_y_motion_interp
 
 
+def motion_vectors_to_grid(motion_vectors, frame_shape=(1920, 1080)):
+    """Converts motion vectors list into 3D matrix."""
+    motion_vectors_grid = np.zeros((2, math.ceil(frame_shape[1]/16), math.ceil(frame_shape[0]/16)))
+    mvs_x = motion_vectors[:, 5]
+    mvs_y = motion_vectors[:, 6]
+    x = (mvs_x - 8) // 16
+    y = (mvs_y - 8) // 16
+    motion_vectors_grid[0, y, x] = motion_vectors[:, 7] / motion_vectors[:, 9]  # x component
+    motion_vectors_grid[1, y, x] = motion_vectors[:, 8] / motion_vectors[:, 9] # y component
+    return motion_vectors_grid
+
+
 if __name__ == "__main__":
 
     sequences = {
@@ -149,6 +162,8 @@ if __name__ == "__main__":
                  750]   # MOT17-14
     }
 
+    codec = "mpeg4"  # whether to use h264 or mpeg4 video sequences
+
     for mode in ["train", "val", "test"]:
 
         data = []
@@ -160,7 +175,11 @@ if __name__ == "__main__":
             else:
                 dirname = os.path.join(mode, "{}-FRCNN".format(sequence))
 
-            video_file = os.path.join("sequences", "{}.mp4".format(sequence))
+            if codec == "h264":
+                video_file = os.path.join("sequences", "h264", "{}.mp4".format(sequence))
+            elif codec == "mpeg4":
+                video_file = os.path.join("sequences", "mpeg4", "{}.avi".format(sequence))
+
             num_frames = len(glob.glob(os.path.join(dirname, 'img1/*.jpg')))
             detections = load_detections(os.path.join(dirname, 'det/det.txt'), num_frames)
             if mode == "train" or mode == "val":
@@ -200,10 +219,14 @@ if __name__ == "__main__":
                 # motion vectors (interpolated on regular 16x16 grid)
                 if frame_type != "I":
                     motion_vectors = normalize_vectors(motion_vectors)
-                    mvs_x_interp, mvs_y_interp = interp_motion_vectors(motion_vectors, frame_shape)
-                    mvs_interp = torch.from_numpy(np.dstack((mvs_x_interp, mvs_y_interp)))
-                    mvs_interp = mvs_interp.permute(2, 0, 1).float()  # store as C, H, W
-                    data_item["motion_vectors"] = mvs_interp
+                    if codec == "h264":
+                        mvs_x_interp, mvs_y_interp = interp_motion_vectors(motion_vectors, frame_shape)
+                        mvs = torch.from_numpy(np.dstack((mvs_x_interp, mvs_y_interp)))
+                        mvs = mvs.permute(2, 0, 1).float()  # store as C, H, W
+                    elif codec == "mpeg4":
+                        mvs = motion_vectors_to_grid(motion_vectors)
+                        mvs = torch.from_numpy(mvs).float()
+                    data_item["motion_vectors"] = mvs
                 else:
                     data_item["motion_vectors"] = torch.zeros([2, 68, 120], dtype=torch.float)
 
@@ -212,5 +235,5 @@ if __name__ == "__main__":
             cap.release()
             pbar.close()
 
-        pickle.dump(data, open(os.path.join("preprocessed", mode, "data.pkl"), 'wb'))
-        pickle.dump(lengths[mode], open(os.path.join("preprocessed", mode, "lengths.pkl"), 'wb'))
+        pickle.dump(data, open(os.path.join("preprocessed", codec, mode, "data.pkl"), 'wb'))
+        pickle.dump(lengths[mode], open(os.path.join("preprocessed", codec, mode, "lengths.pkl"), 'wb'))

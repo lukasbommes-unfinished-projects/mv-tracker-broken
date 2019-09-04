@@ -56,7 +56,12 @@ def load_groundtruth(gt_file, only_eval=False):
 
 if __name__ == "__main__":
 
-    data_dir = "benchmark/MOT17/train/MOT17-09-FRCNN"
+    root_dir = "benchmark/MOT17/train"
+    sequence = "MOT17-02" # "MOT17-09"
+    detector = "FRCNN"
+    codec = "mpeg4"
+
+    data_dir = os.path.join(root_dir, "{}-{}".format(sequence, detector))
 
     num_frames = len(glob.glob(os.path.join(data_dir, 'img1/*.jpg')))
     detections = load_detections(os.path.join(data_dir, 'det/det.txt'), num_frames)
@@ -65,7 +70,10 @@ if __name__ == "__main__":
     tracker = MotionVectorTracker(iou_threshold=Config.TRACKER_IOU_THRES)
     cap = VideoCap()
 
-    ret = cap.open(os.path.join(data_dir, "seq.mp4"))
+    if codec == "h264":
+        ret = cap.open(os.path.join(root_dir, "..", "sequences", "h264", "{}.mp4".format(sequence)))
+    elif codec == "mpeg4":
+        ret = cap.open(os.path.join(root_dir, "..", "sequences", "mpeg4", "{}.avi".format(sequence)))
     if not ret:
         raise RuntimeError("Could not open the video file")
 
