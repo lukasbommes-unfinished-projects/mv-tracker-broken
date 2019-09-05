@@ -19,6 +19,7 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
     best_model_wts = copy.deepcopy(model.state_dict())
     pickle.dump(best_model_wts, open("models/best_model.pkl", "wb"))
     best_loss = 99999.0
+    iterations = 0
 
     for epoch in range(num_epochs):
 
@@ -94,12 +95,14 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                     pbar.update()
 
                 running_loss += loss.item() * motion_vectors.size(0)
+                writer.add_scalar('Running Loss/{}'.format(phase), running_loss, iterations)
+                iterations += 1
 
             pbar.close()
 
             epoch_loss = running_loss / len(datasets[phase])
             print('{} Loss: {:.4f}'.format(phase, epoch_loss))
-            writer.add_scalar('Loss/{}'.format(phase), epoch_loss, epoch)
+            writer.add_scalar('Epoch Loss/{}'.format(phase), epoch_loss, epoch)
 
             if phase == "val":
                 model_wts = copy.deepcopy(model.state_dict())
@@ -122,8 +125,8 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
 
 
 if __name__ == "__main__":
-    datasets = {x: MotionVectorDataset(root_dir='data', window_length=1, codec="mpeg4", visu=False, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=4, shuffle=False, num_workers=8) for x in ["train", "val", "test"]}
+    datasets = {x: MotionVectorDataset(root_dir='data', window_length=1, codec="h264", visu=False, mode=x) for x in ["train", "val", "test"]}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=8, shuffle=True, num_workers=8) for x in ["train", "val", "test"]}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
