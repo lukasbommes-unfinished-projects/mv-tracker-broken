@@ -1,3 +1,15 @@
+import time
+import copy
+import pickle
+from tqdm import tqdm
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+from lib.datasets import MotionVectorDataset
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -83,7 +95,8 @@ class PropagationNetwork(nn.Module):
         self.conv1x1 = nn.Conv2d(128, 4*self.POOLING_SIZE*self.POOLING_SIZE, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False)
         self.pooling = nn.AvgPool2d(kernel_size=self.POOLING_SIZE, stride=self.POOLING_SIZE)
 
-        print([p.requires_grad for p in self.base.parameters()])
+        print([p.requires_grad for p in self.parameters()])
+        print([p.shape for p in self.parameters()])
         print(list(self.children()))
 
 
@@ -134,13 +147,58 @@ class PropagationNetwork(nn.Module):
         return boxes
 
 
-if __name__ == "__main__":
 
-    model = PropagationNetwork()
-    print([p.requires_grad for p in model.base.parameters()])
-    print(list(model.children()))
+datasets = {x: MotionVectorDataset(root_dir='data', window_length=1, codec="mpeg4", visu=False, mode=x) for x in ["train", "val", "test"]}
+dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=4, shuffle=False, num_workers=8) for x in ["train", "val", "test"]}
 
-    #input = torch.zeros(1, 2, 68, 120)
-    #output = model(input, None, None)
-    #print(input.shape)
-    #print(output.shape)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+model = PropagationNetwork()
+model = model.to(device)
+
+#criterion = nn.SmoothL1Loss(reduction='mean')
+criterion = nn.MSELoss(reduction='mean')
+optimizer = optim.Adam(model.parameters(), lr=0.01, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0001, amsgrad=False)
+
+
+for step, (motion_vectors, boxes_prev, velocities, num_boxes_mask) in enumerate(dataloaders["train"]):
+    motion_vectors = motion_vectors.to(device)
+    boxes_prev = boxes_prev.to(device)
+    velocities = velocities.to(device)
+    num_boxes_mask = num_boxes_mask.to(device)
+
+    mvs_min = torch.min(motion_vectors)
+    mvs_max = torch.max(motion_vectors)
+    motion_vectors = (motion_vectors - mvs_min) / (mvs_max - mvs_min)
+
+    velocities = velocities[num_boxes_mask]
+    velocities = velocities.view(-1, 4)
+
+    #vel_min = torch.min(velocities)
+    #vel_max = torch.max(velocities)
+    #velocities = (velocities - vel_min) / (vel_max - vel_min)
+
+    optimizer.zero_grad()
+
+    with torch.set_grad_enabled(True):
+        velocities_pred = model(motion_vectors, boxes_prev, num_boxes_mask)
+
+        loss = criterion(velocities_pred, velocities)
+
+        loss.backward()
+
+        print("Printing grads: ")
+        c = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                c += 1
+                print(p.grad.data.sum())
+        print("Done printing grads {}".format(c))
+
+        a = list(model.parameters())[0].clone()
+
+        optimizer.step()
+
+        b = list(model.parameters())[0].clone()
+        print(torch.equal(a.data, b.data))

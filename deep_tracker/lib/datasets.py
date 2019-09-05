@@ -169,6 +169,12 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                     gt_ids = torch.from_numpy(gt_ids[idx_1])
                     gt_ids_prev = torch.from_numpy(gt_ids_prev[idx_0])
 
+                # scale boxes to match the motion vector dimensions
+                # factor of 16 corresponds to 16 x 16 macroblocks
+                boxes = boxes / 16.0
+                boxes_prev = boxes_prev / 16.0
+
+
                 # insert frame index into boxes and boxes_prev
                 num_boxes = (boxes.shape)[0]
                 boxes_prev_tmp = torch.zeros(num_boxes, 5)
@@ -284,8 +290,8 @@ if __name__ == "__main__":
                 gt_ids_prev = gt_ids_prev.long().numpy()
 
                 frame = draw_motion_vectors(frame, motion_vectors)
-                frame = draw_boxes(frame, boxes, gt_ids, color=(255, 255, 255))
-                frame = draw_boxes(frame, boxes_prev, gt_ids_prev, color=(200, 200, 200))
+                frame = draw_boxes(frame, boxes*16.0, gt_ids, color=(255, 255, 255))
+                frame = draw_boxes(frame, boxes_prev*16.0, gt_ids_prev, color=(200, 200, 200))
                 frame = draw_velocities(frame, boxes, velocities)
 
                 cv2.imshow("frame-{}".format(batch_idx), frame)

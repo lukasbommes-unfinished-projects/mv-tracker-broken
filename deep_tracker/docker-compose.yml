@@ -15,5 +15,6 @@ services:
       - ../benchmark/MOT17:/workspace/data
     ports:
       - "88:8888"
+      - "6006:6006"
     entrypoint: ./docker-entrypoint.sh
     command: tail -f /dev/null

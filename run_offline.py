@@ -57,9 +57,9 @@ def load_groundtruth(gt_file, only_eval=False):
 if __name__ == "__main__":
 
     root_dir = "benchmark/MOT17/train"
-    sequence = "MOT17-11" # "MOT17-09"
+    sequence = "MOT17-09"
     detector = "FRCNN"
-    codec = "mpeg4"
+    codec = "h264"
 
     data_dir = os.path.join(root_dir, "{}-{}".format(sequence, detector))
 
