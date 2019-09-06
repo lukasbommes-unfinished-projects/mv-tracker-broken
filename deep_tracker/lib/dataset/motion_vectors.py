@@ -103,7 +103,6 @@ def motion_vectors_to_image(motion_vectors, frame_shape=(1920, 1080)):
         the motion components are normalized to range [0, 1].
     """
     # compute necessary frame shape
-    frame_shape = (1920, 1080)
     need_width = math.ceil(frame_shape[0] / 16) * 16
     need_height = math.ceil(frame_shape[1] / 16) * 16
 

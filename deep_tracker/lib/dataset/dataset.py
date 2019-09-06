@@ -1,7 +1,5 @@
 import os
-import pickle
 import torch
-import math
 import cv2
 import numpy as np
 
@@ -19,15 +17,15 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
         self.sequences = {
             "train": [
-                "MOT17/train/MOT17-02-FRCNN",
-                "MOT17/train/MOT17-04-FRCNN",
-                "MOT17/train/MOT17-05-FRCNN",
-                "MOT17/train/MOT17-11-FRCNN",
-                "MOT17/train/MOT17-13-FRCNN",
-                "MOT15/train/ETH-Bahnhof",
-                "MOT15/train/ETH-Sunnyday",
-                "MOT15/train/KITTI-13",
-                "MOT15/train/KITTI-17",
+                #"MOT17/train/MOT17-02-FRCNN",
+                #"MOT17/train/MOT17-04-FRCNN",
+                #"MOT17/train/MOT17-05-FRCNN",
+                #"MOT17/train/MOT17-11-FRCNN",
+                #"MOT17/train/MOT17-13-FRCNN",
+                #"MOT15/train/ETH-Bahnhof",
+                #"MOT15/train/ETH-Sunnyday",
+                #"MOT15/train/KITTI-13",
+                #"MOT15/train/KITTI-17",
                 "MOT15/train/PETS09-S2L1",
                 "MOT15/train/TUD-Campus",
                 "MOT15/train/TUD-Stadtmitte"
@@ -81,18 +79,39 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
 
-        #TODO: load ground truth only for train and val data
+        #TODO:
+        # - load ground truth only for train and val data
+
+        # BUGS:
+        # Switch from PETS09-S2L1 to TUD-Campus -> data loader tries to crate a batch containing one sample of the old sequence and one of the new sequence which raises an error because their dimensions are different
+
+        print("Getting item idx {}".format(idx))
 
         while True:
 
+            # when the end of the sequence is reached switch to the next one
+            if self.current_frame_idx == self.lens[self.mode][self.current_seq_id]:
+                print("Sequence {} is being closed...".format(self.sequences[self.mode][self.current_seq_id]))
+                self.caps[self.current_seq_id].release()
+                self.is_open[self.current_seq_id] = False
+                self.current_frame_idx = 0
+                self.current_seq_id += 1
+                # make sure the sequence index wraps around at the number of sequences
+                if self.current_seq_id == len(self.sequences[self.mode]):
+                    self.current_seq_id = 0
+                print("Updated sequence id to {} and frame index to {}".format(self.current_seq_id, self.current_frame_idx))
+                continue
+
             # this block is executed only once when a new sequence starts
             if not self.is_open[self.current_seq_id]:
+                print("Sequence {} is being opened...".format(self.sequences[self.mode][self.current_seq_id]))
 
                 # open detections and groundtruth files
                 #detections_file = os.path.join(self.root_dir, self.sequences[self.current_seq_id], "det/det.txt")
                 #detections = load_detections(detections_file, num_frames=self.lens[self.mode][self.current_seq_id])
                 gt_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "gt/gt.txt")
                 self.gt_ids_all, self.gt_boxes_all, _ = load_groundtruth(gt_file, only_eval=True)
+                print("groundtruth files loaded")
 
                 # read and store first ground truth (and detections)
                 self.gt_boxes_prev = self.gt_boxes_all[0]
@@ -101,30 +120,23 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 # open the video sequence and drop first frame
                 sequence_name = str.split(self.sequences[self.mode][self.current_seq_id], "/")[-1]
                 video_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "{}-h264.mp4".format(sequence_name))
+                print("Opening video file {} of sequence {}".format(video_file, sequence_name))
                 ret = self.caps[self.current_seq_id].open(video_file)
                 if not ret:
                     raise RuntimeError("Could not open the video file")
                 _ = self.caps[self.current_seq_id].read()
+                print("Opened the video file")
 
                 self.is_open[self.current_seq_id] = True
                 self.current_frame_idx += 1
-                continue
-
-            # when the end of the sequence is reached switch to the next one
-            if self.current_frame_idx == self.lens[self.mode][self.current_seq_id]:
-                self.caps[self.current_seq_id].release()
-                self.is_open[self.current_seq_id] = False
-                self.current_frame_idx = 0
-                self.current_seq_id =+ 1
-                # make sure the sequence index wraps around at the number of sequences
-                if self.current_seq_id == len(self.sequences[self.mode]):
-                    self.current_seq_id = 0
+                print("Incremented frame index to {}".format(self.current_frame_idx))
                 continue
 
             # otherwise just load, process and return the next sample
             ret, frame, motion_vectors, frame_type, _ = self.caps[self.current_seq_id].read()
             if not ret:  # should never happen
                 raise RuntimeError("Could not read next frame from video")
+            print("got frame, frame_type {}, mvs shape: {}, frame shape: {}".format(frame_type, motion_vectors.shape, frame.shape))
 
             # convert motion vectors to image (for I frame black image is returned)
             motion_vectors = get_vectors_by_source(motion_vectors, "past")  # get only p vectors
@@ -203,22 +215,23 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 if __name__ == "__main__":
     batch_size = 2
     datasets = {x: MotionVectorDataset(root_dir='../benchmark', visu=True, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=8) for x in ["train", "val"]}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=1) for x in ["train", "val"]}
 
     step_wise = False
 
     for batch_idx in range(batch_size):
         cv2.namedWindow("frame-{}".format(batch_idx), cv2.WINDOW_NORMAL)
         cv2.resizeWindow("frame-{}".format(batch_idx), 640, 360)
-    cv2.namedWindow("motion_vectors", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("motion_vectors", 640, 360)
+        cv2.namedWindow("motion_vectors-{}".format(batch_idx), cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
-    for step, (frames_, frame_tyes_, motion_vectors_, boxes_prev_, velocities_, num_boxes_mask_,
+    for step, (frames_, frame_types_, motion_vectors_, boxes_prev_, velocities_, num_boxes_mask_,
         boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["train"]):
 
         for batch_idx in range(batch_size):
 
             frames = frames_[batch_idx]
+            frame_type = frame_types_[batch_idx]
             motion_vectors = motion_vectors_[batch_idx]
             boxes = boxes_[batch_idx]
             boxes_prev = boxes_prev_[batch_idx]
@@ -235,13 +248,18 @@ if __name__ == "__main__":
             gt_ids = gt_ids.long().numpy()
             gt_ids_prev = gt_ids_prev.long().numpy()
 
+            cv2.putText(frame, 'Frame Idx: {}'.format(step), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, 'Frame Type: {}'.format(frame_type), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
+
             #frame = draw_motion_vectors(frame, motion_vectors)
             frame = draw_boxes(frame, boxes, gt_ids, color=(255, 255, 255))
             frame = draw_boxes(frame, boxes_prev, gt_ids_prev, color=(200, 200, 200))
             frame = draw_velocities(frame, boxes, velocities)
 
+            print(motion_vectors.shape)
+
             cv2.imshow("frame-{}".format(batch_idx), frame)
-            cv2.imshow("motion_vectors", motion_vectors)
+            cv2.imshow("motion_vectors-{}".format(batch_idx), motion_vectors)
 
         key = cv2.waitKey(1)
         if not step_wise and key == ord('s'):
