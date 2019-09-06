@@ -9,7 +9,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from lib.model import PropagationNetwork
-from lib.datasets import MotionVectorDataset
+from lib.dataset.dataset import MotionVectorDataset
 
 
 def train(model, criterion, optimizer, scheduler, num_epochs=2):
