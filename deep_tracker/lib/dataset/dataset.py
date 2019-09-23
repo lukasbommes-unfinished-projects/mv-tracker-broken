@@ -13,19 +13,19 @@ from lib.visu import draw_boxes, draw_velocities
 
 
 class MotionVectorDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, mode, pad_num_boxes=52, visu=False):
+    def __init__(self, root_dir, mode, batch_size, pad_num_boxes=52, visu=False):
 
         self.sequences = {
             "train": [
-                #"MOT17/train/MOT17-02-FRCNN",
-                #"MOT17/train/MOT17-04-FRCNN",
-                #"MOT17/train/MOT17-05-FRCNN",
-                #"MOT17/train/MOT17-11-FRCNN",
-                #"MOT17/train/MOT17-13-FRCNN",
-                #"MOT15/train/ETH-Bahnhof",
-                #"MOT15/train/ETH-Sunnyday",
-                #"MOT15/train/KITTI-13",
-                #"MOT15/train/KITTI-17",
+                "MOT17/train/MOT17-02-FRCNN",
+                "MOT17/train/MOT17-04-FRCNN",
+                "MOT17/train/MOT17-05-FRCNN",
+                "MOT17/train/MOT17-11-FRCNN",
+                "MOT17/train/MOT17-13-FRCNN",
+                "MOT15/train/ETH-Bahnhof",
+                "MOT15/train/ETH-Sunnyday",
+                "MOT15/train/KITTI-13",
+                "MOT15/train/KITTI-17",
                 "MOT15/train/PETS09-S2L1",
                 "MOT15/train/TUD-Campus",
                 "MOT15/train/TUD-Stadtmitte"
@@ -48,7 +48,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         self.lens = {
             "train": [600, 1050, 837, 900, 750, 1000,
                 354, 340, 145, 795, 71, 179],
-            "val": [654, 525],
+            "val": [525, 654],
             "test": [450, 1500, 1194, 500, 625, 900, 750]
         }
 
@@ -72,9 +72,21 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         self.current_seq_id = 0
         self.current_frame_idx = 0
 
+        # pre-compute the last frame index at which to switch to the next sequence
+        # so that the sequence length is dividable by the batch size. Otherwise, it
+        # can happen that a batch is created that contains frames from two different
+        # sequences.
+        self.lens_truncated = []
+        for seq_len in self.lens[self.mode]:
+            self.lens_truncated.append(seq_len - ((seq_len - 1) % batch_size))
+
+        print(self.lens_truncated)
+
 
     def __len__(self):
-        return sum(self.lens[self.mode]) - 1 # -1 is needed because of idx+1 in __getitem__
+        total_len = sum(self.lens_truncated) - len(self.lens_truncated)  # first frame of each sequence is skipped
+        print("Overall length of dataset: {}".format(total_len))
+        return total_len
 
 
     def __getitem__(self, idx):
@@ -82,15 +94,12 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         #TODO:
         # - load ground truth only for train and val data
 
-        # BUGS:
-        # Switch from PETS09-S2L1 to TUD-Campus -> data loader tries to crate a batch containing one sample of the old sequence and one of the new sequence which raises an error because their dimensions are different
-
-        print("Getting item idx {}".format(idx))
-
         while True:
 
+            print("Getting item idx {}, Current sequence idx {}, Current frame idx {}".format(idx, self.current_seq_id, self.current_frame_idx))
+
             # when the end of the sequence is reached switch to the next one
-            if self.current_frame_idx == self.lens[self.mode][self.current_seq_id]:
+            if self.current_frame_idx == self.lens_truncated[self.current_seq_id]:
                 print("Sequence {} is being closed...".format(self.sequences[self.mode][self.current_seq_id]))
                 self.caps[self.current_seq_id].release()
                 self.is_open[self.current_seq_id] = False
@@ -113,7 +122,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 self.gt_ids_all, self.gt_boxes_all, _ = load_groundtruth(gt_file, only_eval=True)
                 print("groundtruth files loaded")
 
-                # read and store first ground truth (and detections)
+                # read and store first set of ground truth boxes and ids
                 self.gt_boxes_prev = self.gt_boxes_all[0]
                 self.gt_ids_prev = self.gt_ids_all[0]
 
@@ -145,7 +154,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             motion_vectors = motion_vectors_to_image(motion_vectors, (frame.shape[1], frame.shape[0]))
             motion_vectors = torch.from_numpy(motion_vectors).float()
 
-            # get ground truth boxes andudate previous boxes and ids
+            # get ground truth boxes and update previous boxes and ids
             gt_boxes = self.gt_boxes_all[self.current_frame_idx]
             gt_ids = self.gt_ids_all[self.current_frame_idx]
             gt_boxes_prev_ = np.copy(self.gt_boxes_prev)
@@ -211,11 +220,11 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             return motion_vectors, boxes_prev, velocities, num_boxes_mask
 
 
-# run as python -m lib.datasets from root dir
+# run as python -m lib.dataset.dataset from root dir
 if __name__ == "__main__":
-    batch_size = 2
-    datasets = {x: MotionVectorDataset(root_dir='../benchmark', visu=True, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=1) for x in ["train", "val"]}
+    batch_size = 3
+    datasets = {x: MotionVectorDataset(root_dir='../benchmark', batch_size=batch_size, visu=True, mode=x) for x in ["train", "val", "test"]}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=0) for x in ["train", "val"]}
 
     step_wise = False
 
@@ -226,7 +235,7 @@ if __name__ == "__main__":
         cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
     for step, (frames_, frame_types_, motion_vectors_, boxes_prev_, velocities_, num_boxes_mask_,
-        boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["train"]):
+        boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["val"]):
 
         for batch_idx in range(batch_size):
 
@@ -256,7 +265,7 @@ if __name__ == "__main__":
             frame = draw_boxes(frame, boxes_prev, gt_ids_prev, color=(200, 200, 200))
             frame = draw_velocities(frame, boxes, velocities)
 
-            print(motion_vectors.shape)
+            print("step: {}, MVS shape: {}".format(step, motion_vectors.shape))
 
             cv2.imshow("frame-{}".format(batch_idx), frame)
             cv2.imshow("motion_vectors-{}".format(batch_idx), motion_vectors)
