@@ -126,7 +126,7 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
 
 if __name__ == "__main__":
     datasets = {x: MotionVectorDataset(root_dir='data', window_length=1, codec="h264", visu=False, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=8, shuffle=True, num_workers=8) for x in ["train", "val", "test"]}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=2, shuffle=False, num_workers=0) for x in ["train", "val", "test"]}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")

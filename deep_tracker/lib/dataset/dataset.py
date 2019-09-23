@@ -235,7 +235,7 @@ if __name__ == "__main__":
         cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
     for step, (frames_, frame_types_, motion_vectors_, boxes_prev_, velocities_, num_boxes_mask_,
-        boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["val"]):
+        boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["train"]):
 
         for batch_idx in range(batch_size):
 
