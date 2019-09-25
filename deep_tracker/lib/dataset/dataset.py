@@ -15,22 +15,22 @@ from lib.visu import draw_boxes, draw_velocities, draw_motion_vectors
 class MotionVectorDataset(torch.utils.data.Dataset):
     def __init__(self, root_dir, mode, batch_size, pad_num_boxes=52, visu=False):
 
-        self.DEBUG = False  # whteher to print debug information
+        self.DEBUG = True  # whteher to print debug information
 
         self.sequences = {
             "train": [
-                "MOT17/train/MOT17-02-FRCNN",
-                "MOT17/train/MOT17-04-FRCNN",
-                "MOT17/train/MOT17-05-FRCNN",
-                "MOT17/train/MOT17-11-FRCNN",
-                "MOT17/train/MOT17-13-FRCNN",
-                "MOT15/train/ETH-Bahnhof",
-                "MOT15/train/ETH-Sunnyday",
+                #"MOT17/train/MOT17-02-FRCNN",
+                #"MOT17/train/MOT17-04-FRCNN",
+                #"MOT17/train/MOT17-05-FRCNN",
+                #"MOT17/train/MOT17-11-FRCNN",
+                #"MOT17/train/MOT17-13-FRCNN",
+                #"MOT15/train/ETH-Bahnhof",
+                #"MOT15/train/ETH-Sunnyday",
                 "MOT15/train/KITTI-13",
-                "MOT15/train/KITTI-17",
-                "MOT15/train/PETS09-S2L1",
-                "MOT15/train/TUD-Campus",
-                "MOT15/train/TUD-Stadtmitte"
+                #"MOT15/train/KITTI-17",
+                #"MOT15/train/PETS09-S2L1",
+                #"MOT15/train/TUD-Campus",
+                #"MOT15/train/TUD-Stadtmitte"
             ],
             "val": [
                 "MOT17/train/MOT17-09-FRCNN",
@@ -48,8 +48,9 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         }
 
         self.lens = {
-            "train": [600, 1050, 837, 900, 750, 1000,
-                354, 340, 145, 795, 71, 179],
+            #"train": [600, 1050, 837, 900, 750, 1000,
+            #    354, 340, 145, 795, 71, 179],
+            "train": [340],
             "val": [525, 654],
             "test": [450, 1500, 1194, 500, 625, 900, 750]
         }
@@ -81,8 +82,6 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         self.lens_truncated = []
         for seq_len in self.lens[self.mode]:
             self.lens_truncated.append(seq_len - ((seq_len - 1) % batch_size))
-
-        print(self.lens_truncated)
 
 
     def __len__(self):
@@ -219,7 +218,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             self.current_frame_idx += 1
 
             if self.visu:
-                return (frame, frame_type, motion_vectors, boxes_prev,
+                return (frame, motion_vectors, boxes_prev,
                     velocities, num_boxes_mask)
 
             return motion_vectors, boxes_prev, velocities, num_boxes_mask
@@ -239,13 +238,12 @@ if __name__ == "__main__":
         cv2.namedWindow("motion_vectors-{}".format(batch_idx), cv2.WINDOW_NORMAL)
         cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
-    for step, (frames_, frame_types_, motion_vectors_, boxes_prev_, velocities_,
-        num_boxes_mask_) in enumerate(dataloaders["val"]):
+    for step, (frames_, motion_vectors_, boxes_prev_, velocities_,
+        num_boxes_mask_) in enumerate(dataloaders["train"]):
 
         for batch_idx in range(batch_size):
 
             frames = frames_[batch_idx]
-            frame_type = frame_types_[batch_idx]
             motion_vectors = motion_vectors_[batch_idx]
             boxes_prev = boxes_prev_[batch_idx]
             velocities = velocities_[batch_idx]
