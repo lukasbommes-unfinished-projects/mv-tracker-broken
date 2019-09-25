@@ -38,6 +38,6 @@ if __name__ == "__main__":
         for dir_name, frame_rate in zip(dir_names[mode], frame_rates[mode]):
             os.chdir(os.path.join(cwd, mode, dir_name, 'img1'))
             if CODEC == "h264":
-                subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'libx264', '../{}-{}.mp4'.format(dir_name, CODEC)])
+                subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'libx264', '-f', 'rawvideo', '../{}-{}.mp4'.format(dir_name, CODEC)])
             elif CODEC == "mpeg4":
-                subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'mpeg4', '-qscale:v', '1', '../{}-{}.avi'.format(dir_name, CODEC)])
+                subprocess.call(['ffmpeg', '-y', '-r', str(frame_rate), '-i', '%06d.jpg', '-c:v', 'mpeg4', '-qscale:v', '1', '-f', 'rawvideo', '../{}-{}.avi'.format(dir_name, CODEC)])

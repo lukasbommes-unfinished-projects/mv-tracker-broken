@@ -45,6 +45,8 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 velocities = velocities.to(device)
                 num_boxes_mask = num_boxes_mask.to(device)
 
+                # TODO: use lib.utils.scale_image to scale the motion vector image to different scales
+
                 # print("###")
                 # print("before normalization")
                 # print("min:", torch.min(motion_vectors))
@@ -125,8 +127,9 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
 
 
 if __name__ == "__main__":
-    datasets = {x: MotionVectorDataset(root_dir='data', window_length=1, codec="h264", visu=False, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=2, shuffle=False, num_workers=0) for x in ["train", "val", "test"]}
+    batch_size = 2
+    datasets = {x: MotionVectorDataset(root_dir='data', batch_size=batch_size, visu=False, mode=x) for x in ["train", "val", "test"]}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=0) for x in ["train", "val", "test"]}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
