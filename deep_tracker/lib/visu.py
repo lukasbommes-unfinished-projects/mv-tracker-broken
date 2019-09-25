@@ -26,15 +26,31 @@ def draw_boxes_on_motion_vector_image(mvs_image, bounding_boxes, color=(255, 255
     return mvs_image
 
 
-def draw_motion_vectors(frame, motion_vectors):
-    if motion_vectors.shape[0] > 0:
-        for x in range(motion_vectors.shape[2]):
-            for y in range(motion_vectors.shape[1]):
-                motion_x = motion_vectors[0, y, x]
-                motion_y = motion_vectors[1, y, x]
-                end_pt = (x * 16 + 8, y * 16 + 8)  # the x,y coords correspond to the vector destination
-                start_pt = (end_pt[0] - motion_x, end_pt[1] - motion_y)  # vector source
-                cv2.arrowedLine(frame, start_pt, end_pt, (0, 0, 255), 1, cv2.LINE_AA, 0, 0.3)
+def draw_motion_vectors(frame, motion_vectors, format='torch'):
+    """Draw motion vectors onto the frame.
+
+    Format can be either 'numpy' for motion vectors as returned directly by
+    video_cap or 'torch' for motion vectors trasformed to a torch tensor.
+    """
+    if format == 'torch':
+        if motion_vectors.shape[0] > 0:
+            for x in range(motion_vectors.shape[2]):
+                for y in range(motion_vectors.shape[1]):
+                    motion_x = motion_vectors[0, y, x]
+                    motion_y = motion_vectors[1, y, x]
+                    end_pt = (x * 16 + 8, y * 16 + 8)  # the x,y coords correspond to the vector destination
+                    start_pt = (end_pt[0] - motion_x, end_pt[1] - motion_y)  # vector source
+                    cv2.arrowedLine(frame, start_pt, end_pt, (0, 0, 255), 1, cv2.LINE_AA, 0, 0.3)
+    elif format == 'numpy':
+        if np.shape(motion_vectors)[0] > 0:
+            num_mvs = np.shape(motion_vectors)[0]
+            for mv in np.split(motion_vectors, num_mvs):
+                start_pt = (mv[0, 3], mv[0, 4])
+                end_pt = (mv[0, 5], mv[0, 6])
+                if mv[0, 0] < 0:
+                    cv2.arrowedLine(frame, start_pt, end_pt, (0, 0, 255), 1, cv2.LINE_AA, 0, 0.3)
+                else:
+                    cv2.arrowedLine(frame, start_pt, end_pt, (0, 255, 0), 1, cv2.LINE_AA, 0, 0.3)
     return frame
 
 
@@ -57,10 +73,10 @@ def draw_boxes(frame, bounding_boxes, box_ids=None, color=(0, 255, 0)):
     return frame
 
 
-def draw_velocities(frame, bounding_boxes, velocities):
+def draw_velocities(frame, bounding_boxes, velocities, scale=100):
     for box, velocity in zip(bounding_boxes, velocities):
         box = box*16.0
         start_pt = (int(box[0] + 0.5 * box[2]), int(box[1] + 0.5 * box[3]))
-        end_pt = (int(start_pt[0] + 100*velocity[0]), int(start_pt[1] + 100*velocity[1]))
+        end_pt = (int(start_pt[0] + scale*velocity[0]), int(start_pt[1] + scale*velocity[1]))
         cv2.arrowedLine(frame, start_pt, end_pt, (255, 255, 255), 1, cv2.LINE_AA, 0, 0.3)
     return frame

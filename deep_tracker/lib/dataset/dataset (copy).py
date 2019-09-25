@@ -159,20 +159,15 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             if self.DEBUG:
                 print("got frame, frame_type {}, mvs shape: {}, frame shape: {}".format(frame_type, motion_vectors.shape, frame.shape))
 
+            if self.visu:
+                frame = draw_motion_vectors(frame, motion_vectors, format='numpy')
+
             # convert motion vectors to image (for I frame black image is returned)
             motion_vectors = get_vectors_by_source(motion_vectors, "past")  # get only p vectors
             motion_vectors = normalize_vectors(motion_vectors)
             motion_vectors = get_nonzero_vectors(motion_vectors)
-            motion_vectors_copy = np.copy(motion_vectors)
             motion_vectors = motion_vectors_to_image(motion_vectors, (frame.shape[1], frame.shape[0]))
             motion_vectors = torch.from_numpy(motion_vectors).float()
-
-            if self.visu:
-                frame = draw_motion_vectors(frame, motion_vectors_copy, format='numpy')
-                sequence_name = str.split(self.sequences[self.mode][self.current_seq_id], "/")[-1]
-                cv2.putText(frame, 'Sequence: {}'.format(sequence_name), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
-                cv2.putText(frame, 'Frame Idx: {}'.format(self.current_frame_idx), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
-                cv2.putText(frame, 'Frame Type: {}'.format(frame_type), (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
 
             # get ground truth boxes and update previous boxes and ids
             gt_boxes = self.gt_boxes_all[self.current_frame_idx]
@@ -188,6 +183,8 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             boxes_prev = torch.from_numpy(gt_boxes_prev_[idx_0]).float()
             velocities = velocities_from_boxes(boxes_prev, boxes)
             if self.visu:
+                #gt_ids = torch.from_numpy(gt_ids[idx_1])
+                #gt_ids_prev_ = torch.from_numpy(gt_ids_prev_[idx_0])
                 frame = draw_boxes(frame, boxes, gt_ids, color=(255, 255, 255))
                 frame = draw_boxes(frame, boxes_prev, gt_ids_prev_, color=(200, 200, 200))
 
@@ -197,6 +194,11 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             boxes_prev_tmp[:, 1:5] = boxes_prev
             boxes_prev_tmp[:, 0] = torch.full((num_boxes,), self.current_frame_idx).float()
             boxes_prev = boxes_prev_tmp
+            if self.visu:
+                boxes_tmp = torch.zeros(num_boxes, 5).float()
+                boxes_tmp[:, 1:5] = boxes
+                boxes_tmp[:, 0] = torch.full((num_boxes,), self.current_frame_idx).float()
+                boxes = boxes_tmp
 
             # pad boxes_prev to the same global length (for MOT17 this is 52)
             boxes_prev_padded = torch.zeros(self.pad_num_boxes, 5).float()
@@ -208,9 +210,19 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             velocities_padded[:num_boxes, :] = velocities
             velocities = velocities_padded
 
-            # BUG: Velocities do not show up
-            #if self.visu:
-            #    frame = draw_velocities(frame, boxes, velocities)
+            if self.visu:
+                # similarly pad boxes
+                boxes_padded = torch.zeros(self.pad_num_boxes, 5).float()
+                boxes_padded[:num_boxes, :] = boxes
+                boxes = boxes_padded
+
+                # similarly pad gt_ids
+                gt_ids_padded = torch.zeros(self.pad_num_boxes,)
+                gt_ids_padded[:num_boxes] = gt_ids
+                gt_ids = gt_ids_padded
+                gt_ids_prev_padded = torch.zeros(self.pad_num_boxes,)
+                gt_ids_prev_padded[:num_boxes] = gt_ids_prev_
+                gt_ids_prev_ = gt_ids_prev_padded
 
             # create a mask to revert the padding at a later stage
             num_boxes_mask = torch.zeros(self.pad_num_boxes,).bool()
@@ -220,7 +232,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
             if self.visu:
                 return (frame, frame_type, motion_vectors, boxes_prev,
-                    velocities, num_boxes_mask)
+                    velocities, num_boxes_mask, boxes, gt_ids, gt_ids_prev_)
 
             return motion_vectors, boxes_prev, velocities, num_boxes_mask
 
@@ -240,19 +252,34 @@ if __name__ == "__main__":
         cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
     for step, (frames_, frame_types_, motion_vectors_, boxes_prev_, velocities_,
-        num_boxes_mask_) in enumerate(dataloaders["val"]):
+        num_boxes_mask_, boxes_, gt_ids_, gt_ids_prev_) in enumerate(dataloaders["val"]):
 
         for batch_idx in range(batch_size):
 
             frames = frames_[batch_idx]
             frame_type = frame_types_[batch_idx]
             motion_vectors = motion_vectors_[batch_idx]
+            boxes = boxes_[batch_idx]
             boxes_prev = boxes_prev_[batch_idx]
+            gt_ids = gt_ids_[batch_idx]
+            gt_ids_prev = gt_ids_prev_[batch_idx]
             velocities = velocities_[batch_idx]
             num_boxes_mask = num_boxes_mask_[batch_idx]
 
+            boxes = boxes[:, 1:].numpy()
+            boxes_prev = boxes_prev[:, 1:].numpy()
+
             frame = frames.numpy()
             motion_vectors = motion_vectors.numpy()
+            gt_ids = gt_ids.long().numpy()
+            gt_ids_prev = gt_ids_prev.long().numpy()
+
+            cv2.putText(frame, 'Frame Idx: {}'.format(step), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(frame, 'Frame Type: {}'.format(frame_type), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
+
+            #frame = draw_boxes(frame, boxes, gt_ids, color=(255, 255, 255))
+            #frame = draw_boxes(frame, boxes_prev, gt_ids_prev, color=(200, 200, 200))
+            frame = draw_velocities(frame, boxes, velocities)
 
             print("step: {}, MVS shape: {}".format(step, motion_vectors.shape))
 
