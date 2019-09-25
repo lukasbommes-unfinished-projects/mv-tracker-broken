@@ -83,7 +83,7 @@ def normalize_vectors(motion_vectors):
         return motion_vectors
 
 
-def motion_vectors_to_image(motion_vectors, frame_shape=(1920, 1080)):
+def motion_vectors_to_image(motion_vectors, frame_shape=(1920, 1080), scale=False):
     """Converts a set of motion vectors into a BGR image.
 
     Args:
@@ -96,11 +96,13 @@ def motion_vectors_to_image(motion_vectors, frame_shape=(1920, 1080)):
             Should correspond to the size of the source footage of which the motion vectors
             where extracted.
 
+        scale (`bool`): If True, scale motion vector components in the output image to
+            range [0, 1]. If False, do not scale.
+
     Returns:
         `numpy.ndarray` The motion vectors encoded as image. Image shape is (height, widht, 3)
-        and channel order is BGR. The red channel contains the scaled x motion components of
-        the motion vectors and the green channel the scaled y motion components. Scaled means
-        the motion components are normalized to range [0, 1].
+        and channel order is BGR. The red channel contains the x motion components of
+        the motion vectors and the green channel the y motion components.
     """
     # compute necessary frame shape
     need_width = math.ceil(frame_shape[0] / 16) * 16
@@ -122,13 +124,13 @@ def motion_vectors_to_image(motion_vectors, frame_shape=(1920, 1080)):
         mvs_motion_x = (motion_vectors[:, 7] / motion_vectors[:, 9]).reshape(-1, 1)
         mvs_motion_y = (motion_vectors[:, 8] / motion_vectors[:, 9]).reshape(-1, 1)
 
-        mvs_min_x = np.min(mvs_motion_x)
-        mvs_max_x = np.max(mvs_motion_x)
-        mvs_min_y = np.min(mvs_motion_y)
-        mvs_max_y = np.max(mvs_motion_y)
-
-        mvs_motion_x = (mvs_motion_x - mvs_min_x) / (mvs_max_x - mvs_min_x)
-        mvs_motion_y = (mvs_motion_y - mvs_min_y) / (mvs_max_y - mvs_min_y)
+        if scale:
+            mvs_min_x = np.min(mvs_motion_x)
+            mvs_max_x = np.max(mvs_motion_x)
+            mvs_min_y = np.min(mvs_motion_y)
+            mvs_max_y = np.max(mvs_motion_y)
+            mvs_motion_x = (mvs_motion_x - mvs_min_x) / (mvs_max_x - mvs_min_x)
+            mvs_motion_y = (mvs_motion_y - mvs_min_y) / (mvs_max_y - mvs_min_y)
 
         for i, motion_vector in enumerate(motion_vectors):
             # repeat value
