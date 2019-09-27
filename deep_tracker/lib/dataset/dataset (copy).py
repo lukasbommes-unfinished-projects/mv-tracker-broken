@@ -27,7 +27,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 #"MOT15/train/ETH-Bahnhof",
                 #"MOT15/train/ETH-Sunnyday",
                 "MOT15/train/KITTI-13",
-                "MOT15/train/KITTI-17",
+                #"MOT15/train/KITTI-17",
                 #"MOT15/train/PETS09-S2L1",
                 #"MOT15/train/TUD-Campus",
                 #"MOT15/train/TUD-Stadtmitte"
@@ -50,7 +50,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         self.lens = {
             #"train": [600, 1050, 837, 900, 750, 1000,
             #    354, 340, 145, 795, 71, 179],
-            "train": [340, 145],
+            "train": [340],
             "val": [525, 654],
             "test": [450, 1500, 1194, 500, 625, 900, 750]
         }
@@ -74,56 +74,18 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
         self.current_seq_id = 0
         self.current_frame_idx = 0
-        self.frame_return_count = 0  # number of frames returned
-        self.last_gt_was_none = True  # flag that is True when the previous frame had no gt annotations,
-                                      # set initially to True because frame prior to first frame has no annotation
 
-        self.compute_truncated_length()
-
-
-    def compute_truncated_length(self):
-        """Compute the number of usable frames for each sequence.
-
-        Usable frames are those which have a ground truth annotation and for
-        which the previous frame also had a ground truth annotation. Only those
-        ground truth annotation for which the eval flag is set to 1 are considered
-        (see `only_eval` parameter in load_groundtruth).
-
-        The number of usable frames is stored in the attribute lens_truncated.
-
-        The function also considers the batch_size. The trunacted lenghts are
-        corrected so that the number of usable frames can be split into an integer
-        number of batches, that is: number_of_frames % batch_size == 0
-        """
+        # pre-compute the last frame index at which to switch to the next sequence
+        # so that the sequence length is dividable by the batch size. Otherwise, it
+        # can happen that a batch is created that contains frames from two different
+        # sequences.
         self.lens_truncated = []
-        if self.mode == "train" or self.mode == "val":
-            for seq_id, sequence in enumerate(self.sequences[self.mode]):
-                # open gt file
-                gt_file = os.path.join(self.root_dir, sequence, "gt/gt.txt")
-                gt_ids, gt_boxes, _ = load_groundtruth(gt_file, num_frames=self.lens[self.mode][seq_id], only_eval=True)
-                # count number of usable frames in the sequence
-                count = 0
-                last_gt_was_none = True
-                for index in range(len(gt_boxes)):
-                    if gt_boxes[index] is None:
-                        last_gt_was_none = True
-                        continue
-                    if last_gt_was_none:
-                        last_gt_was_none = False
-                        continue
-                    count += 1
-                # consider batch size truncation
-                count = count - (count % batch_size)
-                if self.DEBUG:
-                    print("Sequence {} has {} usable frames".format(sequence, count))
-                self.lens_truncated.append(count)
-            if self.mode == "test":
-                # TODO: compute length of test data set
-                pass
+        for seq_len in self.lens[self.mode]:
+            self.lens_truncated.append(seq_len - ((seq_len - 1) % batch_size))
 
 
     def __len__(self):
-        total_len = sum(self.lens_truncated)
+        total_len = sum(self.lens_truncated) - len(self.lens_truncated)  # first frame of each sequence is skipped
         if self.DEBUG:
             print("Overall length of dataset: {}".format(total_len))
         return total_len
@@ -137,10 +99,10 @@ class MotionVectorDataset(torch.utils.data.Dataset):
         while True:
 
             if self.DEBUG:
-                print("Getting item idx {}, Current sequence idx {}, Current frame idx {}, Current frame return count {}".format(idx, self.current_seq_id, self.current_frame_idx, self.frame_return_count))
+                print("Getting item idx {}, Current sequence idx {}, Current frame idx {}".format(idx, self.current_seq_id, self.current_frame_idx))
 
             # when the end of the sequence is reached switch to the next one
-            if self.frame_return_count == self.lens_truncated[self.current_seq_id]:
+            if self.current_frame_idx == self.lens_truncated[self.current_seq_id]:
                 if self.DEBUG:
                     print("Sequence {} is being closed...".format(self.sequences[self.mode][self.current_seq_id]))
                 self.caps[self.current_seq_id].release()
@@ -163,11 +125,15 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 #detections_file = os.path.join(self.root_dir, self.sequences[self.current_seq_id], "det/det.txt")
                 #detections = load_detections(detections_file, num_frames=self.lens[self.mode][self.current_seq_id])
                 gt_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "gt/gt.txt")
-                self.gt_ids_all, self.gt_boxes_all, _ = load_groundtruth(gt_file, num_frames=self.lens[self.mode][self.current_seq_id], only_eval=True)
+                self.gt_ids_all, self.gt_boxes_all, _ = load_groundtruth(gt_file, only_eval=True)
                 if self.DEBUG:
-                    print("Groundtruth files loaded")
+                    print("groundtruth files loaded")
 
-                # open the video sequence and drop frame
+                # read and store first set of ground truth boxes and ids
+                self.gt_boxes_prev = self.gt_boxes_all[0]
+                self.gt_ids_prev = self.gt_ids_all[0]
+
+                # open the video sequence and drop first frame
                 sequence_name = str.split(self.sequences[self.mode][self.current_seq_id], "/")[-1]
                 video_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "{}-h264.mp4".format(sequence_name))
                 if self.DEBUG:
@@ -175,36 +141,9 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 ret = self.caps[self.current_seq_id].open(video_file)
                 if not ret:
                     raise RuntimeError("Could not open the video file")
+                _ = self.caps[self.current_seq_id].read()
                 if self.DEBUG:
                     print("Opened the video file")
-
-                self.frame_return_count = 0  # reset return counter for the new sequence
-
-                # if the first frame does not contain any valid annotation, loop
-                # through the following frames until the first valid annotation
-                self.last_gt_was_none = True
-                while True:
-
-                    ret, _, _, _, _ = self.caps[self.current_seq_id].read()
-                    if not ret:  # should never happen
-                        raise RuntimeError("Could not read first frame from video")
-
-                    print(self.current_frame_idx)
-                    print(self.last_gt_was_none)
-
-                    # read and store first set of ground truth boxes and ids
-                    if self.gt_boxes_all[self.current_frame_idx] is None:
-                        print("gt is None", self.last_gt_was_none)
-                        self.last_gt_was_none = True
-                        self.current_frame_idx += 1
-                        continue
-
-                    if self.last_gt_was_none:
-                        self.last_gt_was_none = False
-                        self.gt_boxes_prev = self.gt_boxes_all[self.current_frame_idx]
-                        self.gt_ids_prev = self.gt_ids_all[self.current_frame_idx]
-                        print("Storing boxes prev for frame_idx ", self.current_frame_idx)
-                        break
 
                 self.is_open[self.current_seq_id] = True
                 self.current_frame_idx += 1
@@ -218,24 +157,6 @@ class MotionVectorDataset(torch.utils.data.Dataset):
                 raise RuntimeError("Could not read next frame from video")
             if self.DEBUG:
                 print("got frame, frame_type {}, mvs shape: {}, frame shape: {}".format(frame_type, motion_vectors.shape, frame.shape))
-
-            print(self.gt_ids_all[self.current_frame_idx])
-
-            # if there is no ground truth annotation for this frame skip it
-            if self.gt_boxes_all[self.current_frame_idx] is None:
-                print("gt is None", self.last_gt_was_none)
-                self.last_gt_was_none = True
-                self.current_frame_idx += 1
-                continue
-
-            # when the next frame with gt annotation is read, store prev_boxes and prev_ids but still skip this frame
-            if self.last_gt_was_none:
-                self.last_gt_was_none = False
-                self.gt_boxes_prev = self.gt_boxes_all[self.current_frame_idx]
-                self.gt_ids_prev = self.gt_ids_all[self.current_frame_idx]
-                print("Storing boxes prev for frame_idx ", self.current_frame_idx)
-                self.current_frame_idx += 1
-                continue
 
             # convert motion vectors to image (for I frame black image is returned)
             motion_vectors = get_vectors_by_source(motion_vectors, "past")  # get only p vectors
@@ -295,7 +216,6 @@ class MotionVectorDataset(torch.utils.data.Dataset):
             num_boxes_mask[0:num_boxes] = torch.ones(num_boxes,).bool()
 
             self.current_frame_idx += 1
-            self.frame_return_count += 1
 
             if self.visu:
                 return (frame, motion_vectors, boxes_prev,
@@ -306,7 +226,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
 # run as python -m lib.dataset.dataset from root dir
 if __name__ == "__main__":
-    batch_size = 3
+    batch_size = 1
     datasets = {x: MotionVectorDataset(root_dir='data', batch_size=batch_size, visu=True, mode=x) for x in ["train", "val", "test"]}
     dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=0) for x in ["train", "val"]}
 

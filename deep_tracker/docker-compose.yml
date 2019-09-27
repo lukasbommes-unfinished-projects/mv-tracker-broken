@@ -4,7 +4,7 @@ services:
 
   mv_tracker_deep_tracker:
     container_name: mv_tracker_deep_tracker
-    image: pytorch2
+    image: pytorch3
     runtime: nvidia
     environment:
       - DISPLAY

@@ -16,10 +16,23 @@ def draw_motion_vectors(frame, motion_vectors):
 
 if __name__ == "__main__":
 
-    video_file = "../benchmark/MOT17/train/MOT17-10-FRCNN/MOT17-10-FRCNN-h264.mp4"
+    #video_file = "data/MOT15/train/ADL-Rundle-6/ADL-Rundle-6-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/ADL-Rundle-8/ADL-Rundle-8-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/ETH-Bahnhof/ETH-Bahnhof-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/ETH-Pedcross2/ETH-Pedcross2-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/ETH-Sunnyday/ETH-Sunnyday-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/KITTI-13/KITTI-13-h264.mp4"  # broken
+    #video_file = "data/MOT15/train/KITTI-17/KITTI-17-h264.mp4"  # broken
+    #video_file = "data/MOT15/train/PETS09-S2L1/PETS09-S2L1-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/TUD-Campus/TUD-Campus-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/TUD-Stadtmitte/TUD-Stadtmitte-h264.mp4"  # OK
+    #video_file = "data/MOT15/train/Venice-2/Venice-2-h264.mp4"  # OK
 
-    cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("frame", 640, 360)
+    video_file = "data/MOT15/test/KITTI-19/KITTI-19-h264.mp4"  # broken
+
+
+    #cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+    #cv2.resizeWindow("frame", 640, 360)
 
     step_wise = False
 
@@ -28,6 +41,8 @@ if __name__ == "__main__":
     if not ret:
         raise RuntimeError("Could not open the video file")
 
+    cap_cv = cv2.VideoCapture(video_file)
+
     while True:
 
         ret, frame, motion_vectors, frame_type, _ = cap.read()
@@ -35,9 +50,19 @@ if __name__ == "__main__":
             print("Could not read the next frame")
             break
 
-        frame = draw_motion_vectors(frame, motion_vectors)
+        ret, frame_cv = cap_cv.read()
+        if not ret:
+            print("Could not read the next frame")
+            break
+
+        print(np.shape(frame))
+        print(np.shape(frame_cv))
+
+
+        #frame = draw_motion_vectors(frame, motion_vectors)
 
         cv2.imshow("frame", frame)
+        cv2.imshow("frame_cv", frame_cv)
         key = cv2.waitKey(25)
         if not step_wise and key == ord('s'):
             step_wise = True
