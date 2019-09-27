@@ -10,10 +10,10 @@ from lib.dataset.motion_vectors import get_vectors_by_source, get_nonzero_vector
     normalize_vectors, motion_vectors_to_image
 from lib.dataset.velocities import velocities_from_boxes
 from lib.visu import draw_boxes, draw_velocities, draw_motion_vectors
-
+from lib.transforms.transforms import standardize_motion_vectors
 
 class MotionVectorDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, mode, batch_size, pad_num_boxes=52, visu=False):
+    def __init__(self, root_dir, mode, batch_size, codec="mpeg4", pad_num_boxes=52, visu=False):
 
         self.DEBUG = True  # whteher to print debug information
 
@@ -56,6 +56,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
         self.root_dir = root_dir
         self.mode = mode
+        self.codec = codec
         self.pad_num_boxes = pad_num_boxes
         self.visu = visu
         self.batch_size = batch_size
@@ -169,7 +170,7 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 
                 # open the video sequence and drop frame
                 sequence_name = str.split(self.sequences[self.mode][self.current_seq_id], "/")[-1]
-                video_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "{}-h264.mp4".format(sequence_name))
+                video_file = os.path.join(self.root_dir, self.sequences[self.mode][self.current_seq_id], "{}-{}.mp4".format(sequence_name, self.codec))
                 if self.DEBUG:
                     print("Opening video file {} of sequence {}".format(video_file, sequence_name))
                 ret = self.caps[self.current_seq_id].open(video_file)
@@ -309,7 +310,8 @@ class MotionVectorDataset(torch.utils.data.Dataset):
 # run as python -m lib.dataset.dataset from root dir
 if __name__ == "__main__":
     batch_size = 3
-    datasets = {x: MotionVectorDataset(root_dir='data', batch_size=batch_size, visu=True, mode=x) for x in ["train", "val", "test"]}
+    codec = "mpeg4"
+    datasets = {x: MotionVectorDataset(root_dir='data', batch_size=batch_size, codec=codec, pad_num_boxes=52, visu=True, mode=x) for x in ["train", "val", "test"]}
     dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=0) for x in ["train", "val"]}
 
     step_wise = False
@@ -321,7 +323,17 @@ if __name__ == "__main__":
         cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
 
     for step, (frames_, motion_vectors_, boxes_prev_, velocities_,
-        num_boxes_mask_) in enumerate(dataloaders["val"]):
+        num_boxes_mask_) in enumerate(dataloaders["train"]):
+
+        # apply transforms
+        if codec == "h264":
+            motion_vectors_ = standardize_motion_vectors(motion_vectors_,
+                mean=[-0.3864056486553166, 0.3219420202390504],  # x, y, channel
+                std=[4.76270068707976, 1.277147814669969])  # x, y, channel
+        elif codec == "mpeg4":
+            motion_vectors_ = standardize_motion_vectors(motion_vectors_,
+                mean=[-0.12560456383521534, 0.1770176594258104],  # x, y, channel
+                std=[1.8279847980299613, 0.7420489598781672])  # x, y, channel
 
         for batch_idx in range(batch_size):
 
