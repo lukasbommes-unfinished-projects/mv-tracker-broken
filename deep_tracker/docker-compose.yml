@@ -4,7 +4,10 @@ services:
 
   mv_tracker_deep_tracker:
     container_name: mv_tracker_deep_tracker
-    image: pytorch3
+    image: pytorch4
+  #mv_deep_tracker:
+#    container_name: mv_deep_tracker
+#    build: .
     runtime: nvidia
     environment:
       - DISPLAY
@@ -16,5 +19,5 @@ services:
     ports:
       - "88:8888"
       - "6006:6006"
-    #entrypoint: ./docker-entrypoint.sh
+    entrypoint: ./docker-entrypoint.sh
     command: tail -f /dev/null

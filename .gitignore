@@ -12,6 +12,7 @@ __pycache__/
 /deep_tracker/models/*.pkl
 deep_tracker/pytorch/
 deep_tracker/runs/
+deep_tracker/pytorch.zip
 
 /benchmark/MOT17/MOT17.zip
 /dev_output/

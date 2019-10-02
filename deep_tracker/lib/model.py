@@ -9,124 +9,81 @@ class PropagationNetwork(nn.Module):
         super(PropagationNetwork, self).__init__()
 
         self.POOLING_SIZE = 7  # the ROIs are split into m x m regions
+        self.FIXED_BLOCKS = 1
+        self.TRUNCATED = False
 
-        layer1 = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-        )
+        self.base = torchvision.models.resnet18(pretrained=True)
 
-        layer2 = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-        )
+        # change number of input channels from 3 to 2
+        #self.base.conv1.in_channels = 2
+        #self.base.conv1 = nn.Conv2d(2, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
-        layer3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-        )
+        # remove fully connected and avg pool layers
+        self.base = nn.Sequential(*list(self.base.children())[:-2])
 
-        layer4 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-        )
+        # change stride to 1 in conv5 block
+        #self.base[5][0].conv1 = nn.Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), dilation=2, padding=(1, 1), bias=False)
+        #self.base[6][0].conv1 = nn.Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), dilation=2, padding=(1, 1), bias=False)
+        #del self.base[5][0].downsample
+        #del self.base[6][0].downsample
+        #del self.base[7][0].downsample
+        #self.base[5][0].conv2 = nn.Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), dilation=2, padding=(1, 1), bias=False)
 
-        layer5 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-        )
-
-        self.base = nn.Sequential(
-            nn.Conv2d(2, 128, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-            nn.ReLU(inplace=True),
-            layer1,
-            nn.ReLU(inplace=True),
-            layer2,
-            nn.ReLU(inplace=True),
-            layer3,
-            nn.ReLU(inplace=True),
-            layer4,
-            nn.ReLU(inplace=True),
-            layer5,
-            nn.ReLU(inplace=True),
-        )
-
-        self.conv1x1 = nn.Conv2d(512, 4*self.POOLING_SIZE*self.POOLING_SIZE, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False)
+        #self.conv1 = nn.Conv2d(512, 4, kernel_size=(1, 1), stride=(1, 1))
+        self.conv1 = nn.Conv2d(512, 4*self.POOLING_SIZE*self.POOLING_SIZE, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False)
         self.pooling = nn.AvgPool2d(kernel_size=self.POOLING_SIZE, stride=self.POOLING_SIZE)
 
-        print([p.requires_grad for p in self.base.parameters()])
+        # def set_bn_fix(m):
+        #     classname = m.__class__.__name__
+        #     print(classname)
+        #     if classname.find('BatchNorm2d') != -1:
+        #         for p in m.parameters(): p.requires_grad = False
+
+        #self.base.apply(set_bn_fix)
+
+        assert (0 <= self.FIXED_BLOCKS <= 4) # set this value to 0, so we can train all blocks
+        if self.FIXED_BLOCKS >= 4: # fix all blocks
+            for p in self.base[10].parameters(): p.requires_grad = False
+        if self.FIXED_BLOCKS >= 3: # fix first 3 blocks
+            for p in self.base[8].parameters(): p.requires_grad = False
+        if self.FIXED_BLOCKS >= 2: # fix first 2 blocks
+            for p in self.base[6].parameters(): p.requires_grad = False
+        if self.FIXED_BLOCKS >= 1: # fix first 1 block
+            for p in self.base[4].parameters(): p.requires_grad = False
+
+        #print(list(self.base.children())[5][0].conv1)
         print(list(self.children()))
 
+        #self._init_weights()
 
-    def forward(self, motion_vectors, boxes_prev, num_boxes_mask):
+
+    def forward(self, motion_vectors, boxes_prev, num_boxes_mask, motion_vector_scale):
         #print(boxes_prev)
         #print("boxes_prev:", boxes_prev.shape)
         #print("motion_vectors:", motion_vectors.shape)
         x = self.base(motion_vectors)
         #print("after ResNet18:", x.shape)
-        x = self.conv1x1(x)
-        x = F.relu(x)
+        x = self.conv1(x)
+        #x = F.relu(x)
         #print("after conv1", x.shape)
 
         boxes_prev = self._change_box_format(boxes_prev)
         boxes_prev = boxes_prev[num_boxes_mask]
         boxes_prev = boxes_prev.view(-1, 5)
         # offset frame_idx so that it corresponds to batch index
+        #boxes_prev[..., :, 0] = boxes_prev[..., :, 0] - boxes_prev[..., 0, 0]
         boxes_prev = self._frame_idx_to_batch_idx(boxes_prev)
         #print(boxes_prev)
 
         # compute ratio of input size to size of base output
-        x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=1/8)
+        #print("motion_vector_scale: {}".format(motion_vector_scale))
+        spatial_scale = 1/32 * motion_vector_scale
+        x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=spatial_scale)
+        #print(x)
         #print("after roi_pool", x.shape)
         x = self.pooling(x)
         velocities_pred = x.squeeze()
         #print("after averaging", velocities_pred.shape)
-        #print(velocities_pred.shape)
 
         return velocities_pred
 
@@ -150,13 +107,28 @@ class PropagationNetwork(nn.Module):
         return boxes
 
 
+    def _init_weights(self):
+        def normal_init(m, mean, stddev, truncated=False):
+            """
+            weight initalizer: truncated normal and random normal.
+            """
+            # x is a parameter
+            if truncated:
+                m.weight.data.normal_().fmod_(2).mul_(stddev).add_(mean)  # not a perfect approximation
+            else:
+                m.weight.data.normal_(mean, stddev)
+                if m.bias is not None:
+                    m.bias.data.zero_()
+
+        # init the box regression conv layer
+        normal_init(self.conv1, 0, 0.001, self.TRUNCATED)
+
+        # init the first conv layer of rcnn_base_mv
+        normal_init(self.base[0], 0, 0.01, self.TRUNCATED)
+
+
 if __name__ == "__main__":
 
     model = PropagationNetwork()
     print([p.requires_grad for p in model.base.parameters()])
     print(list(model.children()))
-
-    #input = torch.zeros(1, 2, 68, 120)
-    #output = model(input, None, None)
-    #print(input.shape)
-    #print(output.shape)
