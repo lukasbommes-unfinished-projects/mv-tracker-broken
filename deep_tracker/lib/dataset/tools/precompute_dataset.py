@@ -9,14 +9,15 @@ from lib.dataset.dataset import MotionVectorDataset
 from lib.transforms.transforms import standardize, scale_image
 
 
+# run as python -m lib.dataset.tools.precompute_dataset from root dir
 if __name__ == "__main__":
 
     # configure desired dataset settings here
     batch_size = 2
     codec = "mpeg4"
     modes = ["train", "val"]  # which datasets to generate
-    input_folder = "../data"  # where to look for the input dataset
-    output_folder = "data" # where to save the precomputed samples
+    input_folder = "data"  # where to look for the input dataset, relative to root dir
+    output_folder = "data_precomputed" # where to save the precomputed samples, relative to root dir
 
     items = ["motion_vectors", "boxes_prev", "velocities", "num_boxes_mask"]
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
                 "delete this directory before proceeding.")
                 raise FileExistsError(msg)
 
-        dataset = MotionVectorDataset(root_dir='../data', batch_size=batch_size, codec=codec, pad_num_boxes=52, visu=False, mode=mode)
+        dataset = MotionVectorDataset(root_dir=input_folder, batch_size=batch_size, codec=codec, pad_num_boxes=52, visu=False, mode=mode)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
         print("Mode {} of {}".format(mode, modes))

@@ -13,7 +13,7 @@ __pycache__/
 deep_tracker/pytorch/
 deep_tracker/runs/
 deep_tracker/pytorch.zip
-deep_tracker/precompute_dataset/data
+deep_tracker/data_precomputed
 
 /benchmark/MOT17/MOT17.zip
 /dev_output/
