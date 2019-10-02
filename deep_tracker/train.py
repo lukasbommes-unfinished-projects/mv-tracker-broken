@@ -9,8 +9,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from lib.model import PropagationNetwork
-from lib.dataset.dataset import MotionVectorDataset
-from lib.transforms.transforms import standardize, scale_image
+from lib.dataset.dataset import MotionVectorDatasetPrecomputed
 
 
 def train(model, criterion, optimizer, scheduler, num_epochs=2):
