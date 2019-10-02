@@ -1,3 +1,4 @@
+import os
 import time
 import copy
 import pickle
@@ -9,8 +10,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from lib.model import PropagationNetwork
-from lib.dataset.dataset import MotionVectorDataset
-from lib.transforms.transforms import standardize, scale_image
+from lib.dataset.dataset_precomputed import MotionVectorDatasetPrecomputed
 
 
 def train(model, criterion, optimizer, scheduler, num_epochs=2):
@@ -40,32 +40,21 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
             running_loss = 0.0
 
             pbar = tqdm(total=len(dataloaders[phase]))
-            for step, (motion_vectors, boxes_prev, velocities, num_boxes_mask) in enumerate(dataloaders[phase]):
+            for step, (motion_vectors, boxes_prev, velocities, num_boxes_mask, motion_vector_scale) in enumerate(dataloaders[phase]):
 
-                # standardize motion vectors
-                if codec == "h264":
-                    motion_vectors = standardize(motion_vectors,
-                        mean=[0.0, 0.3219420202390504, -0.3864056486553166],
-                        std=[1.0, 1.277147814669969, 4.76270068707976])
-                elif codec == "mpeg4":
-                    motion_vectors = standardize(motion_vectors,
-                        mean=[0.0, 0.1770176594258104, -0.12560456383521534],
-                        std=[1.0, 0.7420489598781672, 1.8279847980299613])
-
-                # resize spatial dimsions of motion vectors
-                motion_vectors, motion_vector_scale = scale_image(motion_vectors, short_side_min_len=600, long_side_max_len=1000)
-
-                # swap channel order of motion vectors from BGR to RGB
-                motion_vectors = motion_vectors[..., [2, 1, 0]]
-
-                # swap motion vector axes so that shape is (B, C, H, W) instead of (B, H, W, C)
-                motion_vectors = motion_vectors.permute(0, 3, 1, 2)
+                # remove batch dimension as precomputed data is already batched
+                motion_vectors.squeeze_(0)
+                boxes_prev.squeeze_(0)
+                velocities.squeeze_(0)
+                num_boxes_mask.squeeze_(0)
+                motion_vector_scale.squeeze_(0)
 
                 # move to GPU
                 motion_vectors = motion_vectors.to(device)
                 boxes_prev = boxes_prev.to(device)
                 velocities = velocities.to(device)
                 num_boxes_mask = num_boxes_mask.to(device)
+                motion_vector_scale = motion_vector_scale.to(device)
 
                 velocities = velocities[num_boxes_mask]
                 velocities = velocities.view(-1, 4)
@@ -131,10 +120,10 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
 
 
 if __name__ == "__main__":
-    batch_size = 2
-    codec = "mpeg4"
-    datasets = {x: MotionVectorDataset(root_dir='data', batch_size=batch_size, codec=codec, pad_num_boxes=52, visu=False, mode=x) for x in ["train", "val", "test"]}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=batch_size, shuffle=False, num_workers=0) for x in ["train", "val", "test"]}
+    root_dir = "data_precomputed"
+    modes = ["train", "val"]
+    datasets = {x: MotionVectorDatasetPrecomputed(root_dir=os.path.join(root_dir, x)) for x in modes}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=1, shuffle=False, num_workers=8) for x in modes}
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")

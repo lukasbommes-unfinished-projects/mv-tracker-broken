@@ -19,7 +19,7 @@ if __name__ == "__main__":
     input_folder = "data"  # where to look for the input dataset, relative to root dir
     output_folder = "data_precomputed" # where to save the precomputed samples, relative to root dir
 
-    items = ["motion_vectors", "boxes_prev", "velocities", "num_boxes_mask"]
+    items = ["motion_vectors", "boxes_prev", "velocities", "num_boxes_mask", "motion_vector_scale"]
 
     for mode in modes:
 
@@ -62,7 +62,8 @@ if __name__ == "__main__":
                 "motion_vectors": motion_vectors,
                 "boxes_prev": boxes_prev,
                 "velocities": velocities,
-                "num_boxes_mask": num_boxes_mask
+                "num_boxes_mask": num_boxes_mask,
+                "motion_vector_scale": motion_vector_scale
             }
 
             # save data into output folder
