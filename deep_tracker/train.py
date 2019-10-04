@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from lib.model import PropagationNetwork
+from lib.model_OTCD import PropagationNetwork
 from lib.dataset.dataset_precomputed import MotionVectorDatasetPrecomputed
 
 

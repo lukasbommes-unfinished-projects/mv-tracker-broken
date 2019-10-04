@@ -73,7 +73,4 @@ if __name__ == "__main__":
 
             pbar.update()
 
-            if step == 100:
-                break
-
         pbar.close()

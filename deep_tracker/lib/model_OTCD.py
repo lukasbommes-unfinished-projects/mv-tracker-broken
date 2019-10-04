@@ -23,7 +23,8 @@ class PropagationNetwork(nn.Module):
 
         input_channels = 2
         base = [
-            nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False),
+            #nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False),
+            resnet.conv1,
             resnet.bn1,
             resnet.relu,
             resnet.maxpool,
@@ -64,14 +65,15 @@ class PropagationNetwork(nn.Module):
         print(list(self.children()))
 
 
-    def forward(self, motion_vectors, boxes_prev, num_boxes_mask):
+    def forward(self, motion_vectors, boxes_prev, num_boxes_mask, motion_vector_scale):
         #print(boxes_prev)
+        #print(motion_vector_scale)
         #print("boxes_prev:", boxes_prev.shape)
         #print("motion_vectors:", motion_vectors.shape)
         x = self.base(motion_vectors)
         #print("after ResNet18:", x.shape)
         x = self.conv1x1(x)
-        #x = F.relu(x)
+        x = F.relu(x)
         #print("after conv1", x.shape)
 
         boxes_prev = self._change_box_format(boxes_prev)
@@ -83,7 +85,8 @@ class PropagationNetwork(nn.Module):
         #print(boxes_prev)
 
         # compute ratio of input size to size of base output
-        x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=1/16)
+        spatial_scale = 1/16 * motion_vector_scale
+        x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=spatial_scale)
         #print(x)
         #print("after roi_pool", x.shape)
         x = self.pooling(x)
@@ -135,10 +138,10 @@ class PropagationNetwork(nn.Module):
 if __name__ == "__main__":
 
     model = PropagationNetwork()
-    print([p.requires_grad for p in model.base.parameters()])
-    print(list(model.children()))
+    #print([p.requires_grad for p in model.base.parameters()])
+    #print(list(model.children()))
 
-    input = torch.zeros(1, 2, 1080, 1920)
-    output = model(input)
-    print(input.shape)
-    print(output.shape)
+    # input = torch.zeros(1, 2, 1080, 1920)
+    # output = model(input)
+    # print(input.shape)
+    # print(output.shape)
