@@ -12,6 +12,8 @@ from torch.utils.tensorboard import SummaryWriter
 from lib.model_OTCD import PropagationNetwork
 from lib.dataset.dataset_precomputed import MotionVectorDatasetPrecomputed
 
+from lib.visualize_model import Visualizer
+
 
 def train(model, criterion, optimizer, scheduler, num_epochs=2):
     tstart = time.time()
@@ -20,7 +22,7 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
     best_model_wts = copy.deepcopy(model.state_dict())
     pickle.dump(best_model_wts, open("models/best_model.pkl", "wb"))
     best_loss = 99999.0
-    iterations = 0
+    iterations = {"train": 0, "val": 0}
 
     for epoch in range(num_epochs):
 
@@ -56,9 +58,6 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 num_boxes_mask = num_boxes_mask.to(device)
                 motion_vector_scale = motion_vector_scale.to(device)
 
-                velocities = velocities[num_boxes_mask]
-                velocities = velocities.view(-1, 4)
-
                 # normalize velocities to range [0, 1]
                 #vel_min = torch.min(velocities)
                 #vel_max = torch.max(velocities)
@@ -67,15 +66,31 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == "train"):
+
+                    # visualize model inputs
+                    visualizer.save_inputs(motion_vectors, boxes_prev, num_boxes_mask, motion_vector_scale, velocities)
+
+                    velocities = velocities[num_boxes_mask]
+                    velocities = velocities.view(-1, 4)
+
                     velocities_pred = model(motion_vectors, boxes_prev, num_boxes_mask, motion_vector_scale)
+                    velocities_pred = velocities_pred.view(-1, 4)
+
+                    # visualize model outputs
+                    visualizer.save_outputs(velocities_pred)
+                    visualizer.show()
 
                     #print(step)
 
-                    #if step % 1000 == 0:
+                    #if step % 100 == 0:
                     #    print(velocities)
                     #    print(velocities_pred)
 
+                    #print("velocities_pred.shape", velocities_pred.shape)
+                    #print("velocities.shape", velocities.shape)
+
                     loss = criterion(velocities_pred, velocities)
+                    print("loss", loss.item())
 
                     if phase == "train":
                         params_before_update = list(model.parameters())[0].clone()
@@ -84,14 +99,15 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                         params_after_update = list(model.parameters())[0].clone()
 
                         # check if model parameters are still being updated
-                        if torch.equal(params_before_update.data, params_after_update.data):
+                        if torch.allclose(params_before_update.data, params_after_update.data):
                             raise RuntimeError("The model stopped learning. Parameters are not getting updated anymore.")
 
                     pbar.update()
 
-                running_loss += loss.item() * motion_vectors.size(0)
-                writer.add_scalar('Running Loss/{}'.format(phase), running_loss, iterations)
-                iterations += 1
+                batch_size = motion_vectors.size(0)
+                running_loss += loss.item() * batch_size
+                writer.add_scalar('Loss/{}'.format(phase), loss.item() * batch_size, iterations[phase])
+                iterations[phase] += 1
 
             pbar.close()
 
@@ -108,7 +124,8 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
                 best_model_wts = copy.deepcopy(model.state_dict())
                 pickle.dump(best_model_wts, open("models/best_model.pkl", "wb"))
 
-        scheduler.step() # after each train epoch
+        if scheduler:
+            scheduler.step() # after each train epoch
 
     time_elapsed = time.time() - tstart
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -121,18 +138,24 @@ def train(model, criterion, optimizer, scheduler, num_epochs=2):
 
 if __name__ == "__main__":
     root_dir = "data_precomputed"
+    train_parallel = False
     modes = ["train", "val"]
     datasets = {x: MotionVectorDatasetPrecomputed(root_dir=os.path.join(root_dir, x)) for x in modes}
-    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=1, shuffle=False, num_workers=8) for x in modes}
+    dataloaders = {x: torch.utils.data.DataLoader(datasets[x], batch_size=1, shuffle=False, num_workers=0) for x in modes}
+
+    visualizer = Visualizer()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     model = PropagationNetwork()
+    if train_parallel and torch.cuda.device_count() > 1:
+        print("Using {} GPUs".format(torch.cuda.device_count()))
+        model = nn.DataParallel(model)
     model = model.to(device)
 
-    #criterion = nn.SmoothL1Loss(reduction='mean')
-    criterion = nn.MSELoss(reduction='mean')
+    criterion = nn.SmoothL1Loss(reduction='mean')
+    #criterion = nn.MSELoss(reduction='mean')
     optimizer = optim.Adam(model.parameters(), lr=0.01, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0001, amsgrad=False)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
-    best_model = train(model, criterion, optimizer, scheduler, num_epochs=300)
+    #scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+    best_model = train(model, criterion, optimizer, scheduler=None, num_epochs=300)

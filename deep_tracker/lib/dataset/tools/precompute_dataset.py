@@ -13,7 +13,7 @@ from lib.transforms.transforms import standardize, scale_image
 if __name__ == "__main__":
 
     # configure desired dataset settings here
-    batch_size = 2
+    batch_size = 16
     codec = "mpeg4"
     modes = ["train", "val"]  # which datasets to generate
     input_folder = "data"  # where to look for the input dataset, relative to root dir
@@ -57,6 +57,9 @@ if __name__ == "__main__":
 
             # swap motion vector axes so that shape is (B, C, H, W) instead of (B, H, W, C)
             motion_vectors = motion_vectors.permute(0, 3, 1, 2)
+
+            motion_vector_scale = torch.tensor(motion_vector_scale)
+            motion_vector_scale = motion_vector_scale.repeat(batch_size).view(-1, 1)
 
             data = {
                 "motion_vectors": motion_vectors,

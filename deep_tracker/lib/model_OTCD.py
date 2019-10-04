@@ -59,7 +59,7 @@ class PropagationNetwork(nn.Module):
         self.conv1x1 = nn.Conv2d(512, 4*self.POOLING_SIZE*self.POOLING_SIZE, kernel_size=(1, 1), stride=(1, 1), padding=0, bias=False)
         self.pooling = nn.AvgPool2d(kernel_size=self.POOLING_SIZE, stride=self.POOLING_SIZE)
 
-        self._init_weights()
+        #self._init_weights()
 
         print([p.requires_grad for p in self.base.parameters()])
         print(list(self.children()))
@@ -85,7 +85,7 @@ class PropagationNetwork(nn.Module):
         #print(boxes_prev)
 
         # compute ratio of input size to size of base output
-        spatial_scale = 1/16 * motion_vector_scale
+        spatial_scale = 1/16 * motion_vector_scale[0, 0]
         x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=spatial_scale)
         #print(x)
         #print("after roi_pool", x.shape)

@@ -111,10 +111,9 @@ def box_from_velocities(boxes_prev, velocities, sigma=1.5):
     Args:
         boxes_prev (`torch.Tensor`): Bounding boxes in previous frame. Shape [B, N, 4]
             where B is the batch size and N the number of bounding boxes.
-            Each row in
-            this tensor corresponds to one bounding box in format [x, y, w, h] where
-            x and y are the coordinates of the top left corner and w and h are box
-            width and height.
+            Each row in this tensor corresponds to one bounding box in format 
+            [x, y, w, h] where x and y are the coordinates of the top left
+            corner and w and h are box width and height.
 
         velocities (`torch.Tensor`): Box velocities in current frame. Shape [B, N, 4]
             where B is the batch size and N the number of bounding boxes.

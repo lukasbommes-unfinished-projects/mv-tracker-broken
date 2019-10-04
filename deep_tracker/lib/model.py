@@ -77,7 +77,7 @@ class PropagationNetwork(nn.Module):
 
         # compute ratio of input size to size of base output
         #print("motion_vector_scale: {}".format(motion_vector_scale))
-        spatial_scale = 1/32 * motion_vector_scale
+        spatial_scale = 1/32 * motion_vector_scale[0, 0]
         x = torchvision.ops.ps_roi_pool(x, boxes_prev, output_size=(self.POOLING_SIZE, self.POOLING_SIZE), spatial_scale=spatial_scale)
         #print(x)
         #print("after roi_pool", x.shape)

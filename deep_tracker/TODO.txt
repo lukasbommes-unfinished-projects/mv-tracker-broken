@@ -1,0 +1,3 @@
+debug model:
+
+- train on single data point and test if train loss converges to zero while test loss is random guess

@@ -40,10 +40,6 @@ if __name__ == "__main__":
 
         step_wise = False
 
-        for batch_idx in range(2):
-            cv2.namedWindow("motion_vectors-{}".format(batch_idx), cv2.WINDOW_NORMAL)
-            cv2.resizeWindow("motion_vectors-{}".format(batch_idx), 640, 360)
-
         for step, (motion_vectors, boxes_prev, velocities,
             num_boxes_mask, motion_vector_scale) in enumerate(dataloaders[mode]):
 
